@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #1A1D17;
+  --color-bg-surface: #22251E;
+  --color-border-default: #3A3D33;
+  --color-border-emphasis: #4A4E40;
+  --color-text-primary: #F2EEE2;
+  --color-text-secondary: #9B9788;
+  --color-text-tertiary: #6E6B5F;
+  --color-accent-gold: #C9A876;
+  --color-accent-gold-light: #D4B888;
+  --color-success-green: #A8C97F;
+  --color-warning-amber: #D9A85C;
+  --color-danger-rose: #D9785C;
+
+  --font-serif: "Fraunces", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer base {
+  body {
+    background-color: #1A1D17;
+    color: #F2EEE2;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+}
+
+/* Custom scrollbars that match the paper ledger aesthetic */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1A1D17;
+}
+::-webkit-scrollbar-thumb {
+  background: #3A3D33;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4A4E40;
+}
+
