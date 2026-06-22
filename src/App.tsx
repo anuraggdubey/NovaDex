@@ -15,7 +15,7 @@ import {
 import { Token, Route, SwapRecord, Pool } from './types';
 import { 
   TOKENS, MOCK_GLOBAL_METRICS, MOCK_SWAP_HISTORY, MOCK_POOLS, 
-  MOCK_TOP_PAIRS, calculateRoutes 
+  MOCK_TOP_PAIRS, fetchRoutes 
 } from './data';
 
 // Import Stores
@@ -42,6 +42,9 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
   BarChart, Bar, LineChart, Line, CartesianGrid
 } from 'recharts';
+
+import { signTransaction } from '@stellar/freighter-api';
+import { buildSwapTransaction, submitTransaction } from './utils/stellarTx';
 
 export default function App() {
   // Client location hash routing state
@@ -100,13 +103,19 @@ export default function App() {
             </p>
           </div>
           <button 
-            onClick={() => {
+            onClick={async () => {
               addToast("Testnet funding initiated...", "info");
-              // simulate mock friendbot airdrop or faucet
-              setTimeout(() => {
-                useWalletStore.setState({ xlmBalance: 100.0, balances: { ...balances, xlm: 100.0 } });
-                addToast("Friendbot airdropped +100.00 XLM into your balance", "success");
-              }, 1200);
+              try {
+                const res = await fetch(`https://friendbot.stellar.org?addr=${publicKey}`);
+                if (res.ok) {
+                  useWalletStore.setState({ xlmBalance: 10000.0, balances: { ...balances, xlm: 10000.0 } });
+                  addToast("Friendbot funded your account on Testnet!", "success");
+                } else {
+                  addToast("Friendbot funding failed.", "error");
+                }
+              } catch (e) {
+                 addToast("Friendbot funding failed.", "error");
+              }
             }} 
             className="text-xs font-sans font-medium text-accent-gold hover:underline flex items-center gap-1"
           >
@@ -586,33 +595,62 @@ function SwapView() {
 
   const handleTriggerConfirm = () => {
     if (!publicKey) {
-      connect();
+      connect('freighter');
       return;
     }
     setConfirmOpen(true);
   };
 
-  const handleExecuteSwap = () => {
+  const handleExecuteSwap = async () => {
+    if (!publicKey || !selectedRoute) return;
     setConfirmOpen(false);
     
-    // Generate simulated valid tx hash
-    const hexChars = "0123456789abcdef";
-    let hash = "";
-    for (let i = 0; i < 64; i++) {
-      hash += hexChars[Math.floor(Math.random() * 16)];
+    try {
+      addToast('Building transaction...', 'info');
+      const activeSlippageVal = slippageTolerance === 'custom' ? customSlippageValue : slippageTolerance;
+      
+      const xdr = await buildSwapTransaction(
+        publicKey,
+        selectedRoute,
+        fromAmount,
+        activeSlippageVal || '0.5'
+      );
+
+      addToast('Awaiting signature in Freighter...', 'warning');
+      const signedResponse = await signTransaction(xdr, { networkPassphrase: 'Test SDF Network ; September 2015' });
+      
+      if (signedResponse.error) {
+        const errMsg = typeof signedResponse.error === 'string' 
+          ? signedResponse.error 
+          : JSON.stringify(signedResponse.error);
+        throw new Error(errMsg);
+      }
+
+      addToast('Submitting to Stellar network...', 'info');
+      const submitResponse = await submitTransaction(signedResponse.signedTxXdr);
+      
+      if (submitResponse.successful) {
+        setSuccessPayload({
+          fromToken,
+          toToken,
+          fromAmount,
+          toAmount,
+          savedAmount: selectedRoute ? selectedRoute.savedAmount : 0,
+          txHash: submitResponse.hash
+        });
+        addToast('Transaction confirmed on ledger successfully', 'success');
+        reset();
+      } else {
+        throw new Error('Transaction submission failed');
+      }
+    } catch (error: any) {
+      console.error(error);
+      let errMsg = error.message || 'Unknown error';
+      if (error.response?.data?.extras?.result_codes) {
+        errMsg = `Ledger failed: ${JSON.stringify(error.response.data.extras.result_codes)}`;
+      }
+      addToast(`Swap failed: ${errMsg}`, 'error');
     }
-
-    setSuccessPayload({
-      fromToken,
-      toToken,
-      fromAmount,
-      toAmount,
-      savedAmount: selectedRoute ? selectedRoute.savedAmount : 0,
-      txHash: hash
-    });
-
-    addToast(`Transaction confirmed on ledger successfully`, "success");
-    reset();
   };
 
   const activeSlippageVal = slippageTolerance === 'custom' ? customSlippageValue : slippageTolerance;
@@ -879,7 +917,7 @@ function HistoryView() {
           title="Connect key to view ledger histories"
           description="We fetch all historical on-chain aggregates linked to your unique public key directly from the indexer."
           btnLabel="Connect Freighter Wallet"
-          onBtnClick={connect}
+          onBtnClick={() => connect('freighter')}
           icon={<History className="w-8 h-8 text-accent-gold" />}
         />
       </div>
@@ -1260,10 +1298,10 @@ function RouteExplorerView() {
   const runExplorerCalculations = () => {
     if (!explorerAmount || parseFloat(explorerAmount) <= 0) return;
     setSearching(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       // dynamically fetch
       const val = parseFloat(explorerAmount);
-      const { winningRoute, alternativeRoutes } = calculateRoutes(assetA, assetB, val);
+      const { winningRoute, alternativeRoutes } = await fetchRoutes(assetA, assetB, val);
       setCalculatedList([winningRoute, ...alternativeRoutes]);
       setSearching(false);
     }, 400);
@@ -1286,8 +1324,10 @@ function RouteExplorerView() {
     if (calculatedList.length > 0) {
       const val = parseFloat(explorerAmount) || 0;
       if (val > 0) {
-        const { winningRoute, alternativeRoutes } = calculateRoutes(assetA, assetB, val);
-        setCalculatedList([winningRoute, ...alternativeRoutes]);
+        (async () => {
+          const { winningRoute, alternativeRoutes } = await fetchRoutes(assetA, assetB, val);
+          setCalculatedList([winningRoute, ...alternativeRoutes]);
+        })();
       }
     }
   }, [explorerAmount]);

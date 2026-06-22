@@ -16,12 +16,14 @@ import { Badge } from './UI';
 
 // --- WalletButton ---
 export function WalletButton() {
-  const { publicKey, xlmBalance, connect, disconnect, toggleNetwork, network } = useWalletStore();
+  const { publicKey, xlmBalance, provider, connect, disconnect, toggleNetwork, network } = useWalletStore();
   const { addToast } = useToastStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [connectDropdownOpen, setConnectDropdownOpen] = useState(false);
 
-  const handleConnect = () => {
-    connect();
+  const handleConnect = (selectedProvider: 'freighter' | 'albedo') => {
+    setConnectDropdownOpen(false);
+    connect(selectedProvider);
   };
 
   const handleCopy = () => {
@@ -38,17 +40,45 @@ export function WalletButton() {
 
   if (!publicKey) {
     return (
-      <button
-        onClick={handleConnect}
-        className="flex items-center gap-2 px-3.5 py-1.5 bg-[#C9A876] hover:bg-[#D4B888] text-[#1A1D17] rounded-lg text-xs font-sans font-medium hover:text-[#1A1D17] transition-all duration-150 shadow-sm"
-      >
-        <Wallet className="w-3.5 h-3.5" />
-        <span>Connect Wallet</span>
-      </button>
+      <div className="relative">
+        <button
+          onClick={() => setConnectDropdownOpen(!connectDropdownOpen)}
+          className="flex items-center gap-2 px-3.5 py-1.5 bg-[#C9A876] hover:bg-[#D4B888] text-[#1A1D17] rounded-lg text-xs font-sans font-medium hover:text-[#1A1D17] transition-all duration-150 shadow-sm"
+        >
+          <Wallet className="w-3.5 h-3.5" />
+          <span>Connect Wallet</span>
+        </button>
+
+        {connectDropdownOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setConnectDropdownOpen(false)} />
+            <div className="absolute right-0 mt-2 w-40 bg-bg-surface border border-border-default rounded-xl overflow-hidden shadow-2xl z-50 animate-in fade-in slide-in-from-top-3 duration-150">
+              <div className="p-3 bg-bg-base/40 border-b border-border-default">
+                <span className="text-[11px] font-sans text-text-secondary leading-none">Select a Wallet</span>
+              </div>
+              <div className="p-1.5 space-y-0.5">
+                <button
+                  onClick={() => handleConnect('freighter')}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary hover:text-text-primary hover:bg-border-default/25 rounded-md transition-all font-sans"
+                >
+                  <span className="font-semibold text-text-primary">Freighter</span>
+                </button>
+                <button
+                  onClick={() => handleConnect('albedo')}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-text-secondary hover:text-text-primary hover:bg-border-default/25 rounded-md transition-all font-sans"
+                >
+                  <span className="font-semibold text-text-primary">Albedo</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     );
   }
 
   const shortKey = `${publicKey.substring(0, 4)}...${publicKey.substring(publicKey.length - 4)}`;
+  const providerName = provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : 'Wallet';
 
   return (
     <div className="relative">
@@ -77,7 +107,7 @@ export function WalletButton() {
           <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
           <div className="absolute right-0 mt-2 w-52 bg-bg-surface border border-border-default rounded-xl overflow-hidden shadow-2xl z-50 animate-in fade-in slide-in-from-top-3 duration-150">
             <div className="p-3 bg-bg-base/40 border-b border-border-default flex items-center justify-between">
-              <span className="text-[11px] font-sans text-text-secondary leading-none">Freighter Connected</span>
+              <span className="text-[11px] font-sans text-text-secondary leading-none">{providerName} Connected</span>
               <Badge variant={network === 'mainnet' ? 'gold' : 'neutral'} className="text-[9px]">
                 {network}
               </Badge>

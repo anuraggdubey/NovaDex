@@ -8,6 +8,7 @@ export interface Token {
   ticker: string;
   name: string;
   decimals: number;
+  issuer?: string;
 }
 
 export interface RouteHop {
