@@ -31,6 +31,14 @@ export interface Route {
   savingsPercent: number;
   hopsDetails: RouteHop[];
   fingerprint: string;
+  isSplit?: boolean;
+  splitLegs?: SplitLeg[];
+}
+
+export interface SplitLeg {
+  route: Route;
+  amountIn: number;
+  percentage: number;
 }
 
 export interface SwapRecord {

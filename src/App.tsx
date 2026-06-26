@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowDownUp, Activity, History, BookOpen, Layers, Coins, ExternalLink,
   ChevronRight, TrendingUp, MoveRight, Sliders, Check, Settings, Info,
@@ -1231,7 +1231,7 @@ function AnalyticsView() {
               We compile wallet-specific statistics of trading behaviors, slippages utilized, and cumulative capital preserved.
             </p>
             <button
-              onClick={connect}
+              onClick={() => connect('freighter')}
               className="px-4 py-2 bg-accent-gold hover:bg-accent-gold-light text-[#1A1D17] text-xs font-sans font-semibold rounded-lg shadow-md transition-all"
             >
               Connect Wallet

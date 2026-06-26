@@ -1,8 +1,31 @@
-node_modules/
+# Next.js
+.next/
+out/
 build/
-dist/
-coverage/
+
+# Node
+node_modules/
+
+# Environment variables — NEVER COMMIT
+.env.local
+.env.*.local
+
+# TypeScript
+tsconfig.tsbuildinfo
+
+# Supabase
+supabase/.temp/
+
+# Rust/Cargo build artifacts  
+contracts/target/
+*.wasm
+
+# OS
 .DS_Store
-*.log
-.env*
-!.env.example
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronDown, ChevronUp, Layers, Info } from 'lucide-react';
 import { Token, Route } from '../types';
 import { TokenIcon } from './TokenComponents';
