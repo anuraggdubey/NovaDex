@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -27,11 +29,9 @@
 }
 
 html, body {
-  background-color: var(--bg-base);
-  color: var(--text-primary);
-  font-family: var(--font-inter);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8fafc; /* slate-50 */
+  color: #0f172a; /* slate-900 */
+  font-family: 'Space Grotesk', sans-serif;
 }
 
 /* Custom scrollbar */
@@ -59,6 +59,11 @@ html, body {
 /* Mono font for addresses and amounts */
 .font-mono {
   font-family: var(--font-jetbrains-mono), 'Fira Code', monospace;
+}
+
+/* Unique Display font for huge headings */
+.font-display {
+  font-family: 'Syne', sans-serif;
 }
 
 /* Range input accent */

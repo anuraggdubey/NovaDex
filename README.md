@@ -1,97 +1,107 @@
-# NovaDEX
+<div align="center">
 
-NovaDEX is an intent-based DEX aggregator for Stellar. It compares liquidity across Stellar sources, estimates the best swap route, supports wallet-native identity through Freighter or Albedo, and records user/history analytics through Supabase-backed API routes.
+# ◆ NovaDEX
 
-The app is built with Next.js App Router, React, Tailwind CSS, Zustand, Stellar SDK/Freighter APIs, Supabase, and Soroban contract workspaces.
+**Intent-based DEX aggregator on Stellar**
 
-## Features
+Smart routing · Best execution · On-chain settlement
 
-- Wallet connect with Freighter and Albedo
-- Testnet/mainnet-aware Stellar configuration
-- Smart route estimation across SDEX/Horizon and Aquarius
-- Route alternatives, price impact, savings, and route fingerprints
-- Swap history, wallet analytics, favourites, and global metrics APIs
-- Soroban contract workspace for the aggregator router and price oracle
+[![Next.js](https://img.shields.io/badge/Next.js_14-black?logo=nextdotjs)](https://nextjs.org)
+[![Stellar](https://img.shields.io/badge/Stellar-7C3AED?logo=stellar)](https://stellar.org)
+[![Soroban](https://img.shields.io/badge/Soroban-059669)](https://soroban.stellar.org)
+[![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
+
+</div>
+
+---
+
+## What is NovaDEX?
+
+NovaDEX finds the **optimal swap route** across Stellar's liquidity sources (SDEX, Aquarius AMM pools) and executes it through a single Soroban transaction — giving you the best price with minimal slippage.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 14 · React 18 · Tailwind CSS · Framer Motion |
+| State | Zustand stores (wallet, swap, toast) |
+| Wallets | Freighter · Albedo |
+| Backend | Next.js API routes · Supabase (Postgres) |
+| Contracts | Soroban (Rust) — Aggregator Router + Price Oracle |
+| Network | Stellar Testnet (mainnet-ready) |
 
 ## Project Structure
 
-```text
-src/app/                 Next.js App Router pages, layout, and API routes
-src/app/client-app.tsx   Main interactive NovaDEX application shell
-src/lib/                 Stellar, routing, auth, and Supabase helpers
-src/store/               Zustand wallet, swap, and toast stores
-src/types/               Shared application and Supabase types
-supabase/schema.sql      Database schema for users, swaps, favourites, and stats
-contracts/               Soroban Rust workspace
+```
+src/
+├── app/              → Pages, layouts, API routes
+│   └── client-app.tsx → Main application shell
+├── components/       → Reusable UI (logo, etc.)
+├── lib/              → Stellar SDK, routing engine, Supabase client
+├── store/            → Zustand stores
+└── types/            → TypeScript interfaces
+
+contracts/
+├── aggregator_router/ → Soroban swap router contract
+└── price_oracle/      → On-chain price feed contract
+
+supabase/
+└── schema.sql         → Database schema
 ```
 
-## Requirements
-
-- Node.js 20 or newer
-- npm
-- A Supabase project
-- Freighter browser extension for the full wallet flow
-- Rust and Stellar/Soroban tooling if you plan to build or deploy contracts
-
-## Environment Setup
-
-Copy the example file and fill in the project-specific values:
+## Quick Start
 
 ```bash
-cp .env.example .env.local
-```
-
-Required values:
-
-```env
-NEXT_PUBLIC_STELLAR_NETWORK=testnet
-NEXT_PUBLIC_HORIZON_URL=https://horizon-testnet.stellar.org
-NEXT_PUBLIC_AQUARIUS_API_URL=https://amm-api.aqua.network
-NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
-NEXT_PUBLIC_AGGREGATOR_CONTRACT_ID=set_after_contract_deploy
-NEXT_PUBLIC_ORACLE_CONTRACT_ID=set_after_contract_deploy
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_PROTOCOL_FEE_BPS=10
-```
-
-Initialize Supabase by running [supabase/schema.sql](supabase/schema.sql) in the Supabase SQL editor.
-
-## Run Locally
-
-```bash
+# 1. Install dependencies
 npm install
+
+# 2. Configure environment
+cp .env.example .env.local
+# Fill in your Supabase keys + contract IDs
+
+# 3. Run Supabase schema
+# Paste supabase/schema.sql in Supabase SQL Editor
+
+# 4. Start dev server
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open **http://localhost:3000**
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_STELLAR_NETWORK` | `testnet` or `mainnet` |
+| `NEXT_PUBLIC_HORIZON_URL` | Horizon API endpoint |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `NEXT_PUBLIC_AGGREGATOR_CONTRACT_ID` | Deployed router contract ID |
+| `NEXT_PUBLIC_ORACLE_CONTRACT_ID` | Deployed oracle contract ID |
+
+> See [`.env.example`](.env.example) for the full template.
+
+## Contracts
+
+Soroban smart contracts in `contracts/` (Rust workspace):
+
+- **`aggregator_router`** — Executes multi-hop swaps atomically on-chain
+- **`price_oracle`** — Provides reliable price feeds for route comparison
+
+Build with the Stellar/Soroban CLI toolchain. After deployment, paste the contract IDs into `.env.local`.
 
 ## Scripts
 
 ```bash
-npm run dev      # Start the Next.js development server
-npm run lint     # Run Next.js ESLint checks
-npm run build    # Create a production build
-npm run start    # Serve the production build
+npm run dev      # Dev server
+npm run build    # Production build
+npm run lint     # ESLint
+npx tsc --noEmit # Type check
 ```
 
-## Contracts
+---
 
-Soroban contracts live in the `contracts/` Rust workspace:
-
-- `contracts/aggregator_router`
-- `contracts/price_oracle`
-
-Build them with your installed Stellar/Soroban toolchain from the `contracts` directory.
-
-## Verification
-
-Current project checks:
-
-```bash
-npx tsc --noEmit
-npm run lint
-npm run build
-```
-
+<div align="center">
+<sub>Built for the Stellar ecosystem ◆</sub>
+</div>

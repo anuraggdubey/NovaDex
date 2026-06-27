@@ -1,32 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
-// GET /api/analytics/global — public platform-wide stats
-export async function GET(request: NextRequest) {
-  const supabase = createServerClient();
+export async function GET() {
+  try {
+    const supabase = createServerClient();
+    
+    // Fallback to manual aggregation if global_stats table is not perfectly kept up
+    const { data: globalStats, error: statsError } = await supabase
+      .from('global_stats')
+      .select('*')
+      .single();
 
-  const { data, error } = await supabase
-    .from('global_stats')
-    .select('*')
-    .eq('id', 1)
-    .single();
+    if (statsError || !globalStats) {
+      // Aggregate from users
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('swap_count, total_volume_usdc, total_savings_usdc');
 
-  if (error || !data) {
-    return NextResponse.json(
-      {
-        total_volume_usdc: 0,
-        total_swaps: 0,
-        total_savings_usdc: 0,
-        unique_wallets: 0,
-        last_updated: new Date().toISOString(),
-      },
-      { status: 200 }
-    );
+      if (usersError) throw usersError;
+
+      const aggregated = {
+        total_swaps: users.reduce((acc, u) => acc + (u.swap_count || 0), 0),
+        total_volume_usdc: users.reduce((acc, u) => acc + Number(u.total_volume_usdc || 0), 0),
+        total_savings_usdc: users.reduce((acc, u) => acc + Number(u.total_savings_usdc || 0), 0),
+        unique_wallets: users.length,
+      };
+      
+      return NextResponse.json(aggregated);
+    }
+    
+    return NextResponse.json(globalStats);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json(data, {
-    headers: {
-      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
-    },
-  });
 }

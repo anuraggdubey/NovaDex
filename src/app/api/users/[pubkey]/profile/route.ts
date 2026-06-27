@@ -8,16 +8,15 @@ export async function GET(req: Request, { params }: { params: { pubkey: string }
 
     const supabase = createServerClient();
     
-    const { data: swaps, error } = await supabase
-      .from('swaps')
+    const { data: user, error } = await supabase
+      .from('users')
       .select('*')
       .eq('wallet_address', pubkey)
-      .order('executed_at', { ascending: false })
-      .limit(50);
+      .single();
 
     if (error) throw error;
     
-    return NextResponse.json({ swaps: swaps || [] });
+    return NextResponse.json({ user });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

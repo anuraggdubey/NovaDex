@@ -11,7 +11,7 @@
 
 import { Token, Route, RouteHop } from '@/types';
 
-const HORIZON_URL = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org';
+const HORIZON_URL = 'https://horizon.stellar.org'; // Always fetch real market data
 const AQUARIUS_URL = process.env.NEXT_PUBLIC_AQUARIUS_API_URL || 'https://amm-api.aqua.network';
 const PROTOCOL_FEE_BPS = Number(process.env.NEXT_PUBLIC_PROTOCOL_FEE_BPS) || 10;
 
@@ -334,30 +334,7 @@ export async function fetchRoutes(
     }
 
     if (allRoutes.length === 0) {
-      // Testnet fallback mock route
-      const mockOutput = inputAmount * 0.98;
-      const mockRoute: Route = {
-        id: 'mock-route',
-        path: [fromToken, toToken],
-        outputAmount: mockOutput,
-        feePercent: 0.3,
-        hops: 1,
-        priceImpactPercent: 0.1,
-        savedAmount: 0,
-        savingsPercent: 0,
-        hopsDetails: [
-          {
-            source: 'Testnet AMM (Simulated)',
-            fromToken,
-            toToken,
-            amountIn: inputAmount,
-            amountOut: mockOutput,
-            feePercent: 0.3,
-          },
-        ],
-        fingerprint: 'TESTNET-MOCK',
-      };
-      return { winningRoute: mockRoute, alternativeRoutes: [] };
+      return { winningRoute: buildEmptyRoute(fromToken, toToken), alternativeRoutes: [] };
     }
 
     // Sort all routes by output descending
