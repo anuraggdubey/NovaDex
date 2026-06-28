@@ -79,15 +79,22 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         if (!pubKey) throw new Error('Albedo connection failed');
       }
 
-      // Fetch actual balances from Stellar Testnet Horizon
+      // Fetch real balances from Stellar Horizon
+      const HORIZON_URL = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org';
       let xlmBalance = 0;
+      const balances: Record<string, number> = {};
       try {
-        const response = await fetch(`https://horizon-testnet.stellar.org/accounts/${pubKey}`);
+        const response = await fetch(`${HORIZON_URL}/accounts/${pubKey}`);
         if (response.ok) {
           const data = await response.json();
-          const nativeBalance = data.balances.find((b: any) => b.asset_type === 'native');
-          if (nativeBalance) {
-            xlmBalance = parseFloat(nativeBalance.balance);
+          for (const b of data.balances) {
+            if (b.asset_type === 'native') {
+              xlmBalance = parseFloat(b.balance);
+              balances['xlm'] = xlmBalance;
+            } else {
+              const id = b.asset_code.toLowerCase();
+              balances[id] = parseFloat(b.balance);
+            }
           }
         }
       } catch (err) {
@@ -99,14 +106,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
         provider,
         network: 'testnet',
         xlmBalance,
-        balances: {
-          xlm: xlmBalance,
-          usdc: 1500.00,
-          aqua: 85203.40,
-          yxlm: 140.20,
-          shx: 3500.00,
-          ars: 0.00,
-        },
+        balances,
       });
       const providerName = provider.charAt(0).toUpperCase() + provider.slice(1);
       useToastStore.getState().addToast(`${providerName} wallet connected successfully`, 'success');

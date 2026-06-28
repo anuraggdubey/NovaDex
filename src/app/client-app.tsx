@@ -25,7 +25,7 @@ import {
 
 // --- Stellar signing ---
 import { signTransaction } from '@stellar/freighter-api';
-import { buildSwapTransaction, submitTransaction } from '@/lib/stellar';
+import { fetchBalances, buildSwapTransaction, submitTransaction, buildTrustlineTransaction } from '@/lib/stellar';
 
 // ============================================================
 // DESIGN-SYSTEM COMPONENTS
@@ -375,10 +375,33 @@ function WalletButton() {
   const [connectOpen, setConnectOpen] = useState(false);
 
   const handleCopy = () => {
-    if (!publicKey) return;
-    navigator.clipboard.writeText(publicKey);
+    navigator.clipboard.writeText(publicKey || '');
     addToast('Address copied', 'success');
     setDropdownOpen(false);
+  };
+
+  const handleAddTrustlines = async () => {
+    if (!publicKey) return;
+    setDropdownOpen(false);
+    try {
+      addToast('Building trustline transaction...', 'info');
+      const xdr = await buildTrustlineTransaction(publicKey);
+      addToast('Awaiting Freighter signature...', 'warning');
+      const { signTransaction } = await import('@stellar/freighter-api');
+      const signedResponse = await signTransaction(xdr, { networkPassphrase: 'Test SDF Network ; September 2015' });
+      if (signedResponse.error) throw new Error(typeof signedResponse.error === 'string' ? signedResponse.error : JSON.stringify(signedResponse.error));
+      addToast('Submitting to Stellar...', 'info');
+      const submitResponse = await submitTransaction(signedResponse.signedTxXdr);
+      if (submitResponse.successful) {
+        addToast('Trustlines added successfully!', 'success');
+        fetchBalances(publicKey).then(b => useWalletStore.setState({ balances: b }));
+      } else {
+        throw new Error('Transaction submission failed');
+      }
+    } catch (err: any) {
+      console.error(err);
+      addToast(`Failed to add trustlines: ${err.message || 'Unknown error'}`, 'error');
+    }
   };
 
   if (!publicKey) {
@@ -443,6 +466,9 @@ function WalletButton() {
               <a href={`https://stellar.expert/explorer/${network}/account/${publicKey}`} target="_blank" rel="noreferrer" className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-500 hover:text-slate-900 hover:bg-gray-100 rounded-2xl">
                 <ExternalLink className="w-3.5 h-3.5" /><span>Stellar Expert ↗</span>
               </a>
+              <button onClick={handleAddTrustlines} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-2xl">
+                <ShieldCheck className="w-3.5 h-3.5" /><span>Add Testnet Trustlines</span>
+              </button>
               <button onClick={toggleNetwork} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-500 hover:text-slate-900 hover:bg-gray-100 rounded-2xl">
                 <ShieldCheck className="w-3.5 h-3.5" /><span>Toggle Network</span>
               </button>
@@ -721,6 +747,12 @@ function SwapView() {
 
   const handleExecuteSwap = async () => {
     if (!publicKey || !selectedRoute) return;
+    if (selectedRoute.id === 'route-empty') {
+      addToast('No liquidity path exists for these tokens on testnet.', 'error');
+      setConfirmOpen(false);
+      return;
+    }
+    
     setConfirmOpen(false);
     let txHash = null;
     let finalStatus = 'failed';
@@ -737,13 +769,39 @@ function SwapView() {
         finalStatus = 'completed';
         const payload = { fromToken, toToken, fromAmount, toAmount, savedAmount: selectedRoute.savedAmount, txHash: submitResponse.hash };
         setSuccessPayload(payload);
+        useWalletStore.getState().refreshBalances();
         addToast('Swap confirmed on ledger!', 'success');
         reset();
       } else {
         throw new Error('Transaction submission failed');
       }
     } catch (err: any) {
-      addToast(`Swap failed: ${err.message || 'Unknown error'}`, 'error');
+      console.error('Swap Error Detailed:', err?.response?.data || err);
+      let errorMsg = err.message || 'Unknown error';
+      
+      // Extract detailed Horizon error codes if available
+      if (err.response?.data?.extras?.result_codes) {
+         const resultCodes = err.response.data.extras.result_codes;
+         const txCode = resultCodes.transaction;
+         const opCodes = resultCodes.operations;
+         
+         if (opCodes && opCodes.length > 0) {
+           errorMsg = `Stellar Error: ${opCodes.join(', ')}`;
+           if (opCodes.includes('op_no_trust')) {
+             errorMsg = `Missing Trustline! You must add a trustline for ${toToken.ticker} in your Freighter wallet before you can receive it.`;
+           } else if (opCodes.includes('op_underfunded')) {
+             errorMsg = 'Insufficient balance to complete this swap and pay network fees.';
+           } else if (opCodes.includes('op_too_few_offers')) {
+             errorMsg = 'Not enough liquidity on the network to satisfy this trade.';
+           } else if (opCodes.includes('op_cross_self')) {
+             errorMsg = 'You cannot swap against your own offers on the network.';
+           }
+         } else if (txCode) {
+           errorMsg = `Transaction Error: ${txCode}`;
+         }
+      }
+
+      addToast(`Swap failed: ${errorMsg}`, 'error');
     } finally {
       // Record in Supabase
       fetch('/api/swaps/record', {
@@ -898,14 +956,15 @@ function SwapView() {
           <button
             onClick={() => {
               if (!publicKey) { connect('freighter'); return; }
-              if (hasAmount && selectedRoute) setConfirmOpen(true);
+              if (hasAmount && selectedRoute && selectedRoute.id !== 'route-empty') setConfirmOpen(true);
             }}
-            disabled={hasAmount && isLoadingRoute}
-            className={`w-full py-5 text-sm font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 rounded-none mt-8 ${hasAmount ? 'bg-slate-900 hover:bg-black text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
+            disabled={(hasAmount && isLoadingRoute) || (hasAmount && selectedRoute?.id === 'route-empty')}
+            className={`w-full py-5 text-sm font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-3 rounded-none mt-8 ${hasAmount && selectedRoute?.id !== 'route-empty' ? 'bg-slate-900 hover:bg-black text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
           >
             {isLoadingRoute ? <><Spinner className="w-4 h-4" /><span>Finding best route...</span></> :
               !publicKey ? 'Connect Wallet' :
-              !hasAmount ? 'Enter an amount' : 'Review Swap'}
+              !hasAmount ? 'Enter an amount' :
+              selectedRoute?.id === 'route-empty' ? 'No Route Available' : 'Review Swap'}
           </button>
         </div>
       </div>
@@ -1067,7 +1126,7 @@ function AnalyticsView() {
   useEffect(() => {
     fetch('/api/analytics/global').then(r => r.json()).then(setGlobalStats).catch(() => {});
     if (publicKey) {
-      fetch(`/api/users/${publicKey}/analytics`).then(r => r.json()).then(d => setAnalytics(d.analytics)).catch(() => {});
+      fetch(`/api/users/${publicKey}/analytics`).then(r => r.json()).then(d => setAnalytics(d)).catch(() => {});
     }
   }, [publicKey]);
 

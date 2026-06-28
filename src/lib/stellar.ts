@@ -30,10 +30,12 @@ export async function loadAccount(publicKey: string) {
 }
 
 /**
- * Fetches all token balances for a wallet from Horizon
+ * Fetches all token balances for a wallet from Horizon.
+ * Matches assets by code+issuer to correctly handle testnet vs mainnet tokens.
  */
 export async function fetchBalances(publicKey: string): Promise<Record<string, number>> {
   try {
+    const { TOKENS } = await import('@/lib/routing');
     const response = await fetch(`${HORIZON_URL}/accounts/${publicKey}`);
     if (!response.ok) return {};
 
@@ -44,8 +46,17 @@ export async function fetchBalances(publicKey: string): Promise<Record<string, n
       if (balance.asset_type === 'native') {
         balances['xlm'] = parseFloat(balance.balance);
       } else {
-        const id = balance.asset_code.toLowerCase();
-        balances[id] = parseFloat(balance.balance);
+        // Match against our known token list by code + issuer
+        const matched = TOKENS.find(
+          (t: any) => t.ticker === balance.asset_code && t.issuer === balance.asset_issuer
+        );
+        if (matched) {
+          balances[matched.id] = parseFloat(balance.balance);
+        } else {
+          // Store unmatched assets by code (lowercase) for discovery
+          const id = balance.asset_code.toLowerCase();
+          balances[id] = parseFloat(balance.balance);
+        }
       }
     }
 
@@ -103,6 +114,33 @@ export async function buildSwapTransaction(
     .setTimeout(30)
     .build();
 
+  return transaction.toXDR();
+}
+
+/**
+ * Builds a transaction to add trustlines for all our testnet tokens
+ */
+export async function buildTrustlineTransaction(publicKey: string): Promise<string> {
+  const { TOKENS } = await import('@/lib/routing');
+  const account = await horizonServer.loadAccount(publicKey);
+  
+  const builder = new StellarSdk.TransactionBuilder(account, {
+    fee: StellarSdk.BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  });
+
+  for (const token of TOKENS) {
+    if (token.id !== 'xlm' && token.issuer) {
+      builder.addOperation(
+        StellarSdk.Operation.changeTrust({
+          asset: new StellarSdk.Asset(token.ticker, token.issuer),
+          limit: '1000000',
+        })
+      );
+    }
+  }
+
+  const transaction = builder.setTimeout(60).build();
   return transaction.toXDR();
 }
 

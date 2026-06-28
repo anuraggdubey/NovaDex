@@ -19,6 +19,14 @@ Smart routing · Best execution · On-chain settlement
 
 NovaDEX finds the **optimal swap route** across Stellar's liquidity sources (SDEX, Aquarius AMM pools) and executes it through a single Soroban transaction — giving you the best price with minimal slippage.
 
+## 🌍 Real-World Utility (The "Binance Example")
+
+How does swapping tokens on a DEX actually translate to real money?
+
+If a user wants to cash out their crypto, they can use NovaDEX on Mainnet to swap their volatile `XLM` into `USDC` at the absolute best market rate. Because Binance natively supports Stellar USDC deposits, the user can instantly transfer that USDC from their Freighter wallet directly to Binance (settling in < 5 seconds for a fraction of a penny), and then withdraw it to their bank account as US Dollars.
+
+👉 **[Read the full Real-World Workflow & Binance Example here](working.md)**
+
 ## Tech Stack
 
 | Layer | Technology |

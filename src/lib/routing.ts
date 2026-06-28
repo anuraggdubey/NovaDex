@@ -11,11 +11,13 @@
 
 import { Token, Route, RouteHop } from '@/types';
 
-const HORIZON_URL = 'https://horizon.stellar.org'; // Always fetch real market data
+const HORIZON_URL = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org';
 const AQUARIUS_URL = process.env.NEXT_PUBLIC_AQUARIUS_API_URL || 'https://amm-api.aqua.network';
 const PROTOCOL_FEE_BPS = Number(process.env.NEXT_PUBLIC_PROTOCOL_FEE_BPS) || 10;
+const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet';
 
-export const TOKENS: Token[] = [
+// Mainnet token issuers (production)
+const MAINNET_TOKENS: Token[] = [
   { id: 'xlm',  ticker: 'XLM',  name: 'Stellar Lumens',           decimals: 7, issuer: undefined },
   { id: 'usdc', ticker: 'USDC', name: 'USD Coin',                  decimals: 7, issuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN' },
   { id: 'aqua', ticker: 'AQUA', name: 'Aquarius',                  decimals: 7, issuer: 'GBNZILUQWIXPNPTFUMRN3B2HUGQ5Q8E343AHE27XNUP5LDB4E2NCAQUA' },
@@ -23,6 +25,23 @@ export const TOKENS: Token[] = [
   { id: 'ars',  ticker: 'ARS',  name: 'Argentinian Peso (Anchor)', decimals: 7, issuer: 'GCUPFPEPEUK43LBYQFTZ5472XUVHDBP4H65AUIOWXXK2L634F7H3OARS' },
   { id: 'shx',  ticker: 'SHX',  name: 'Stronghold Token',          decimals: 7, issuer: 'GDGQVOKHW4RUBZHVRQURTGEZA5A5NQZWYKQ7V2X7H7NXYR2Z64V6B3B3' },
 ];
+
+// Testnet token issuers — created by scripts/setup-testnet-liquidity.mjs
+// The NOVADEX_TESTNET_ISSUER env var is set after running the liquidity script.
+// Falls back to SDF testnet anchor USDC if not set.
+const TESTNET_ISSUER = process.env.NEXT_PUBLIC_TESTNET_ISSUER || 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+
+const TESTNET_TOKENS: Token[] = [
+  { id: 'xlm',  ticker: 'XLM',  name: 'Stellar Lumens',           decimals: 7, issuer: undefined },
+  { id: 'usdc', ticker: 'USDC', name: 'USD Coin (Testnet)',        decimals: 7, issuer: TESTNET_ISSUER },
+  { id: 'aqua', ticker: 'AQUA', name: 'Aquarius (Testnet)',        decimals: 7, issuer: TESTNET_ISSUER },
+  { id: 'yxlm', ticker: 'yXLM', name: 'Yield Lumens (Testnet)',   decimals: 7, issuer: TESTNET_ISSUER },
+  { id: 'ars',  ticker: 'ARS',  name: 'ARS (Testnet)',             decimals: 7, issuer: TESTNET_ISSUER },
+  { id: 'shx',  ticker: 'SHX',  name: 'Stronghold (Testnet)',      decimals: 7, issuer: TESTNET_ISSUER },
+];
+
+export const TOKENS: Token[] = STELLAR_NETWORK === 'mainnet' ? MAINNET_TOKENS : TESTNET_TOKENS;
+
 
 // ==========================================
 // ASSET QUERY HELPERS

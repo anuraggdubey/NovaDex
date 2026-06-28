@@ -41,6 +41,7 @@ export async function POST(req: Request) {
         asset_out_issuer,
         amount_in,
         amount_out,
+        amount_out_direct_best: amount_out, // Same as amount_out if no direct comparison available
         savings_usdc,
         route_fingerprint,
         route_json,

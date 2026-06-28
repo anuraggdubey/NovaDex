@@ -5,14 +5,14 @@
 
 import { Token, Route, RouteHop, SwapRecord, Pool, GlobalMetrics } from './types';
 
-export const TOKENS: Token[] = [
-  { id: 'xlm', ticker: 'XLM', name: 'Stellar Lumens', decimals: 7, issuer: 'native' },
-  { id: 'usdc', ticker: 'USDC', name: 'USD Coin', decimals: 7, issuer: 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN' },
-  { id: 'aqua', ticker: 'AQUA', name: 'Aquarius', decimals: 7, issuer: 'GBNZILUQWIXPNPTFUMRN3B2HUGQ5Q8E343AHE27XNUP5LDB4E2NCAQUA' },
-  { id: 'yxlm', ticker: 'yXLM', name: 'Yield Lumens', decimals: 7, issuer: 'GARDNV3Q7YGT4AKSDF25LT32YSCCW4EV22Y2TV3I2PU2MMXJTEDL5T55' },
-  { id: 'ars', ticker: 'ARS', name: 'Argentinian Peso (Anchor)', decimals: 7, issuer: 'GCUPFPEPEUK43LBYQFTZ5472XUVHDBP4H65AUIOWXXK2L634F7H3OARS' },
-  { id: 'shx', ticker: 'SHX', name: 'Stronghold Token', decimals: 7, issuer: 'GDGQVOKHW4RUBZHVRQURTGEZA5A5NQZWYKQ7V2X7H7NXYR2Z64V6B3B3' },
-];
+// Re-export TOKENS from the single source of truth (lib/routing.ts)
+// This ensures data.ts and routing.ts always use the same network-aware issuers.
+export { TOKENS } from './lib/routing';
+import { TOKENS as _TOKENS } from './lib/routing';
+
+// Re-alias for internal use in this file
+const TOKENS = _TOKENS;
+
 
 export const MOCK_GLOBAL_METRICS: GlobalMetrics = {
   totalVolumeUSD: 14209584.50,
@@ -97,7 +97,7 @@ export async function fetchRoutes(
       destQuery = `${toToken.ticker}:${toToken.issuer}`;
     }
 
-    const url = `https://horizon-testnet.stellar.org/paths/strict-send?${sourceQuery}&source_amount=${inputAmount}&destination_assets=${destQuery}`;
+    const url = `${process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org'}/paths/strict-send?${sourceQuery}&source_amount=${inputAmount}&destination_assets=${destQuery}`;
     
     const response = await fetch(url);
     if (!response.ok) {
