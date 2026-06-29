@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const supabase = createServerClient();
@@ -11,7 +13,7 @@ export async function GET() {
       .select('*')
       .single();
 
-    if (statsError || !globalStats) {
+    if (statsError || !globalStats || globalStats.total_swaps === 0) {
       // Aggregate from users
       const { data: users, error: usersError } = await supabase
         .from('users')

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import fs from 'fs';
 
 export async function POST(req: Request) {
   try {
@@ -53,7 +54,10 @@ export async function POST(req: Request) {
         executed_at: new Date().toISOString()
       }]);
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      try { fs.appendFileSync('debug.log', JSON.stringify({ error: insertError, body }) + '\n'); } catch (e) {}
+      throw insertError;
+    }
     
     // Update user stats
     // Note: A trigger on supabase might be better, but we can do it here for MVP
@@ -76,6 +80,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    try { fs.appendFileSync('debug.log', JSON.stringify({ globalError: error.message, stack: error.stack }) + '\n'); } catch (e) {}
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

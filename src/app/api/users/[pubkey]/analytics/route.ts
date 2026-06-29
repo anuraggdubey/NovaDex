@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request, { params }: { params: { pubkey: string } }) {
   try {
     const { pubkey } = params;
@@ -11,7 +13,7 @@ export async function GET(req: Request, { params }: { params: { pubkey: string }
     // For MVP, we will just fetch swaps and aggregate here to avoid complex SQL
     const { data: swaps, error } = await supabase
       .from('swaps')
-      .select('*')
+      .select('amount_in, savings_usdc')
       .eq('wallet_address', pubkey);
 
     if (error) throw error;

@@ -755,7 +755,7 @@ function SwapView() {
     
     setConfirmOpen(false);
     let txHash = null;
-    let finalStatus = 'failed';
+    let finalStatus = 'reverted';
     try {
       addToast('Building transaction...', 'info');
       const xdr = await buildSwapTransaction(publicKey, selectedRoute, fromAmount, activeSlippage || '0.5');
@@ -825,6 +825,11 @@ function SwapView() {
           network: 'testnet',
           status: finalStatus,
         }),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const e = await r.json();
+          addToast(`DB Error: ${e.error || 'Unknown'}`, 'error');
+        }
       }).catch(console.warn);
     }
   };
@@ -1006,9 +1011,12 @@ function HistoryView() {
   useEffect(() => {
     if (!publicKey) return;
     setLoading(true);
-    fetch(`/api/users/${publicKey}/history`)
+    fetch(`/api/users/${publicKey}/history?t=${Date.now()}`)
       .then(r => r.json())
-      .then(d => { setHistory(d.swaps || []); setLoading(false); })
+      .then(d => { 
+        setHistory(d.swaps || []); 
+        setLoading(false); 
+      })
       .catch(() => setLoading(false));
   }, [publicKey]);
 
@@ -1124,9 +1132,9 @@ function AnalyticsView() {
   ];
 
   useEffect(() => {
-    fetch('/api/analytics/global').then(r => r.json()).then(setGlobalStats).catch(() => {});
+    fetch(`/api/analytics/global?t=${Date.now()}`).then(r => r.json()).then(d => setGlobalStats(d.globalStats || d || {}));
     if (publicKey) {
-      fetch(`/api/users/${publicKey}/analytics`).then(r => r.json()).then(d => setAnalytics(d)).catch(() => {});
+      fetch(`/api/users/${publicKey}/analytics?t=${Date.now()}`).then(r => r.json()).then(d => setAnalytics(d)).catch(() => {});
     }
   }, [publicKey]);
 
@@ -1136,10 +1144,10 @@ function AnalyticsView() {
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-slate-900 border-b border-gray-200 pb-3">Platform Analytics</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard label="Total swap volume" value={globalStats ? `$${Number(globalStats.total_volume_usdc).toLocaleString()}` : '$14.2M'} subValue="All networks" />
-        <MetricCard label="Total swaps" value={globalStats ? Number(globalStats.total_swaps).toLocaleString() : '284,105'} subValue="Completed" />
-        <MetricCard label="Total savings" value={globalStats ? `$${Number(globalStats.total_savings_usdc).toLocaleString()}` : '$312,056'} subValue="Returned to traders" />
-        <MetricCard label="Unique wallets" value={globalStats ? Number(globalStats.unique_wallets).toLocaleString() : '18,451'} subValue="Active traders" />
+        <MetricCard label="Total swap volume" value={globalStats ? `$${Number(globalStats.total_volume_usdc).toLocaleString()}` : 'Loading...'} subValue="All networks" />
+        <MetricCard label="Total swaps" value={globalStats ? Number(globalStats.total_swaps).toLocaleString() : 'Loading...'} subValue="Completed" />
+        <MetricCard label="Total savings" value={globalStats ? `$${Number(globalStats.total_savings_usdc).toLocaleString()}` : 'Loading...'} subValue="Returned to traders" />
+        <MetricCard label="Unique wallets" value={globalStats ? Number(globalStats.unique_wallets).toLocaleString() : 'Loading...'} subValue="Active traders" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -1186,7 +1194,7 @@ function AnalyticsView() {
             <MetricCard label="Your total volume" value={`$${Number(analytics.totalVolume).toFixed(2)}`} subValue="Cumulative" />
             <MetricCard label="Avg slippage used" value={`${analytics.avgSlippage}%`} subValue="Per swap" />
           </div>
-          {analytics.mostUsedPairs.length > 0 && (
+          {analytics?.mostUsedPairs?.length > 0 && (
             <div className="mt-4">
               <h4 className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Most Used Pairs</h4>
               <div className="space-y-2">
@@ -1336,13 +1344,44 @@ function RouteExplorerView() {
 // POOLS VIEW
 // ============================================================
 
-const MOCK_POOLS: Pool[] = [
-  { id: 'xlm-usdc', tokenA: TOKENS[0], tokenB: TOKENS[1], tvl: 4500000, volume24h: 382400, feeRate: 0.3, routingVolume: 215300 },
-  { id: 'xlm-aqua', tokenA: TOKENS[0], tokenB: TOKENS[2], tvl: 1850000, volume24h: 195200, feeRate: 0.3, routingVolume: 125800 },
-];
+const HORIZON_URL = process.env.NEXT_PUBLIC_HORIZON_URL || 'https://horizon-testnet.stellar.org';
 
 function PoolsView() {
   const [selected, setSelected] = useState<Pool | null>(null);
+  const [pools, setPools] = useState<Pool[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadPools() {
+      try {
+        const p: Pool[] = [];
+        // Fetch XLM/USDC
+        const usdc = TOKENS[1];
+        let res = await fetch(`${HORIZON_URL}/liquidity_pools?reserves=native,${usdc.ticker}:${usdc.issuer}`);
+        let data = await res.json();
+        if (data._embedded?.records?.length > 0) {
+          const record = data._embedded.records[0];
+          p.push({ id: record.id, tokenA: TOKENS[0], tokenB: usdc, tvl: parseFloat(record.reserves[0].amount) * 2, volume24h: 0, feeRate: 0.3, routingVolume: 0 });
+        }
+        
+        // Fetch XLM/AQUA
+        const aqua = TOKENS[2];
+        res = await fetch(`${HORIZON_URL}/liquidity_pools?reserves=native,${aqua.ticker}:${aqua.issuer}`);
+        data = await res.json();
+        if (data._embedded?.records?.length > 0) {
+          const record = data._embedded.records[0];
+          p.push({ id: record.id, tokenA: TOKENS[0], tokenB: aqua, tvl: parseFloat(record.reserves[0].amount) * 2, volume24h: 0, feeRate: 0.3, routingVolume: 0 });
+        }
+        
+        setPools(p);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPools();
+  }, []);
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center border-b border-gray-200 pb-4">
@@ -1363,17 +1402,21 @@ function PoolsView() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1F2937]/50 font-mono">
-              {MOCK_POOLS.map(pool => (
+              {loading ? (
+                <tr><td colSpan={6} className="p-12 text-center text-slate-500">Loading pools from Horizon...</td></tr>
+              ) : pools.length === 0 ? (
+                <tr><td colSpan={6} className="p-12 text-center text-slate-500">No pools found on network</td></tr>
+              ) : pools.map(pool => (
                 <tr key={pool.id} onClick={() => setSelected(pool)} className="hover:bg-slate-50/40 cursor-pointer group transition-colors">
                   <td className="p-3 font-semibold text-slate-900 flex items-center gap-2 pt-4">
                     <TokenIcon token={pool.tokenA} size={18} />
                     <TokenIcon token={pool.tokenB} size={18} />
                     <span className="group-hover:text-emerald-600 transition-colors">{pool.tokenA.ticker} / {pool.tokenB.ticker}</span>
                   </td>
-                  <td className="p-3 text-slate-500">${pool.tvl.toLocaleString()}</td>
-                  <td className="p-3 text-slate-900">${pool.volume24h.toLocaleString()}</td>
+                  <td className="p-3 text-slate-500">{pool.tvl > 0 ? `$${pool.tvl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}</td>
+                  <td className="p-3 text-slate-900">-</td>
                   <td className="p-3 text-slate-500">{pool.feeRate.toFixed(2)}%</td>
-                  <td className="p-3 text-emerald-600 font-medium">${pool.routingVolume.toLocaleString()} <span className="text-[10px] text-slate-400">({((pool.routingVolume/pool.volume24h)*100).toFixed(0)}%)</span></td>
+                  <td className="p-3 text-emerald-600 font-medium">-</td>
                   <td className="p-3 text-right"><span className="text-[11px] text-slate-500 group-hover:text-emerald-600">View ↗</span></td>
                 </tr>
               ))}
