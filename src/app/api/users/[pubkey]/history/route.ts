@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+function jsonNoCache(data: unknown) {
+  return NextResponse.json(data, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      Pragma: 'no-cache',
+    },
+  });
+}
 
 export async function GET(req: Request, { params }: { params: { pubkey: string } }) {
   try {
@@ -18,10 +28,8 @@ export async function GET(req: Request, { params }: { params: { pubkey: string }
       .limit(50);
 
     if (error) throw error;
-    
-    return NextResponse.json({ 
-      swaps: swaps || [], 
-    });
+
+    return jsonNoCache({ swaps: swaps || [] });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

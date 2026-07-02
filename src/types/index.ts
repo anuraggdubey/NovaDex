@@ -17,6 +17,8 @@ export interface RouteHop {
   feePercent: number;
 }
 
+export type RouteSourceType = 'sdex' | 'aquarius' | 'split';
+
 export interface Route {
   id: string;
   path: Token[];
@@ -28,8 +30,25 @@ export interface Route {
   savingsPercent: number;
   hopsDetails: RouteHop[];
   fingerprint: string;
+  sourceType?: RouteSourceType;
   isSplit?: boolean;    // true for split orders
   splitLegs?: SplitLeg[];
+}
+
+export interface RouteSourceGroup {
+  type: RouteSourceType;
+  label: string;
+  status: 'available' | 'unavailable';
+  message?: string;
+  routes: Route[];
+}
+
+export interface RouteSearchResult {
+  winningRoute: Route;
+  alternativeRoutes: Route[];
+  allRoutes: Route[];
+  sources: RouteSourceGroup[];
+  savingsContext?: { sdexBest: number; aquaBest: number };
 }
 
 export interface SplitLeg {
@@ -46,6 +65,11 @@ export interface Pool {
   volume24h: number;
   feeRate: number;
   routingVolume: number;
+  source: 'amm' | 'sdex';
+  reserveAAmount?: number;
+  reserveBAmount?: number;
+  totalShares?: string;
+  lastModified?: string;
 }
 
 export interface GlobalMetrics {

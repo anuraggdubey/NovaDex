@@ -43,9 +43,9 @@ export const NovaDexLogo: React.FC<NovaDexLogoProps> = ({ size = 28, className =
       <defs>
         {/* Main emerald gradient */}
         <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#059669" />
-          <stop offset="50%" stopColor="#10b981" />
-          <stop offset="100%" stopColor="#34d399" />
+          <stop offset="0%" stopColor="#1f5c4d" />
+          <stop offset="50%" stopColor="#2d6a5a" />
+          <stop offset="100%" stopColor="#5a8f7e" />
         </linearGradient>
 
         {/* Subtle glow filter for the accent diamond */}
@@ -92,7 +92,7 @@ export const NovaDexLogo: React.FC<NovaDexLogoProps> = ({ size = 28, className =
       <g filter={`url(#${glowId})`}>
         <path
           d="M18 14.5 L20.2 18 L18 21.5 L15.8 18 Z"
-          fill="#34d399"
+          fill="#5a8f7e"
         />
       </g>
 
@@ -118,10 +118,9 @@ export const NovaDexBrand: React.FC<{
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <NovaDexLogo size={size} />
-      <span className={`${textSize} tracking-tighter text-slate-900`}>
-        <span className="font-black">Nova</span>
-        <span className="font-semibold text-emerald-600">DEX</span>
-        <span className="text-emerald-500 font-black">.</span>
+      <span className={`${textSize} tracking-tight text-nd-ink`}>
+        <span className="font-bold">Nova</span>
+        <span className="font-semibold text-nd-accent">DEX</span>
       </span>
     </span>
   );

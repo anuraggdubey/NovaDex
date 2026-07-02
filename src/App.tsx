@@ -322,7 +322,7 @@ function LandingLayout({ onNavigate }: { onNavigate: (path: string) => void }) {
             <span className="font-mono text-text-tertiary select-none rotate-90 md:rotate-0">----&gt;</span>
           </div>
 
-          <div className="p-4 bg-bg-surface border border-border-default rounded-xl bg-bg-surface">
+          <div className="p-4 bg-bg-surface border border-border-default rounded-xl">
             <Badge variant="success" className="mb-2">Phase 3</Badge>
             <h4 className="font-serif italic text-sm text-text-primary mb-1">Atomic Execution</h4>
             <p className="font-sans text-xs text-text-secondary leading-normal">
@@ -546,8 +546,8 @@ function AppLayout({ children, currentPath, onNavigate }: AppLayoutProps) {
             <Badge variant="neutral" className="text-[9px] px-1 py-0">{network || 'Disconn.'}</Badge>
           </div>
           <div className="flex items-center gap-4">
-            <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-text-secondary transition-colors">GitHub</a>
-            <a href="https://twitter.com" target="_blank" rel="noreferrer" className="hover:text-text-secondary transition-colors">Twitter</a>
+            <a href="https://github.com/anuraggdubey/NovaDex" target="_blank" rel="noopener noreferrer" className="hover:text-text-secondary transition-colors">GitHub</a>
+            <a href="https://x.com/anuraggdubeyy" target="_blank" rel="noopener noreferrer" className="hover:text-text-secondary transition-colors">Twitter</a>
           </div>
         </div>
       </footer>
@@ -722,7 +722,10 @@ function SwapView() {
           {/* Swap Direction Arrow Toggle Button */}
           <div className="flex justify-center -my-2.5 relative z-10">
             <button
+              type="button"
               onClick={swapDirection}
+              aria-label="Swap trade direction"
+              title="Swap trade direction"
               className="p-2 border border-border-default bg-bg-surface hover:border-border-emphasis text-text-secondary hover:text-text-primary rounded-full transition-all focus:outline-none"
             >
               <ArrowDownUp className="w-3.5 h-3.5 hover:rotate-180 transition-transform duration-300" />
@@ -967,6 +970,7 @@ function HistoryView() {
             <select
               value={filterPair}
               onChange={(e) => setFilterPair(e.target.value)}
+              aria-label="Filter by asset pair"
               className="bg-bg-base border border-border-default rounded-lg text-xs py-1.5 px-2.5 focus:outline-none focus:border-accent-gold text-text-secondary"
             >
               <option value="All">All asset pairs</option>
@@ -1063,7 +1067,7 @@ function HistoryView() {
                         <a
                           href={`https://stellar.expert/explorer/testnet/tx/${item.txHash}`}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="hover:underline inline-flex items-center gap-1"
                         >
                           {item.txHash.substring(0, 6)}...{item.txHash.substring(item.txHash.length - 6)}
@@ -1262,7 +1266,7 @@ function AnalyticsView() {
                   <span>78% trades</span>
                 </div>
                 <div className="h-1 w-full bg-border-default rounded-full overflow-hidden">
-                  <div className="h-full bg-accent-gold rounded-full" style={{ width: '78%' }} />
+                  <div className="h-full w-[78%] bg-accent-gold rounded-full" />
                 </div>
               </div>
 
@@ -1272,7 +1276,7 @@ function AnalyticsView() {
                   <span>22% trades</span>
                 </div>
                 <div className="h-1 w-full bg-border-default rounded-full overflow-hidden">
-                  <div className="h-full bg-accent-gold rounded-full" style={{ width: '22%' }} />
+                  <div className="h-full w-[22%] bg-accent-gold rounded-full" />
                 </div>
               </div>
             </div>
@@ -1358,8 +1362,9 @@ function RouteExplorerView() {
           </div>
 
           <div className="w-full sm:w-44">
-            <span className="font-serif italic text-xs text-text-secondary block mb-1">Explore Amount</span>
+            <label htmlFor="route-explorer-amount" className="font-serif italic text-xs text-text-secondary block mb-1">Explore Amount</label>
             <input
+              id="route-explorer-amount"
               type="text"
               value={explorerAmount}
               onChange={(e) => {
@@ -1472,6 +1477,7 @@ function RouteExplorerView() {
             max={99}
             value={orderSizeSliderValue}
             onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+            aria-label="Order size simulator"
             className="w-full accent-accent-gold cursor-pointer bg-border-default h-1 rounded"
           />
           <div className="flex justify-between text-[11px] font-mono text-text-tertiary">
@@ -1665,7 +1671,7 @@ function PoolsView() {
               <a
                 href="https://aquarius.exchange"
                 target="_blank"
-                rel="noreferrer noreferrer"
+                rel="noopener noreferrer"
                 className="w-full py-2.5 bg-transparent border border-border-default hover:border-border-emphasis text-center hover:text-text-primary rounded-lg text-xs font-sans font-medium hover:bg-bg-base/30 transition-all block"
               >
                 Provision active liquidity via Aquarius ↗
@@ -1794,7 +1800,10 @@ function AboutView() {
                   <td className="p-3 text-text-secondary flex items-center justify-between gap-2 max-w-[180px]">
                     <span className="truncate">{c.id}</span>
                     <button 
+                      type="button"
                       onClick={() => handleCopyId(c.id)}
+                      aria-label={`Copy ${c.name} contract address`}
+                      title={`Copy ${c.name} contract address`}
                       className="text-text-tertiary hover:text-accent-gold p-1 cursor-pointer hover:bg-bg-surface rounded transition-all focus:outline-none"
                     >
                       <Copy className="w-3.5 h-3.5" />

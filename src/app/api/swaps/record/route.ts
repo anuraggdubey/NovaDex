@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { computeSwapVolumeUsdc } from '@/lib/volume';
 import fs from 'fs';
 
 export async function POST(req: Request) {
@@ -14,6 +15,7 @@ export async function POST(req: Request) {
       asset_out_issuer,
       amount_in,
       amount_out,
+      amount_out_direct_best,
       savings_usdc,
       route_fingerprint,
       route_json,
@@ -29,6 +31,14 @@ export async function POST(req: Request) {
     }
 
     const supabase = createServerClient();
+
+    // Ensure user row exists (required FK for swaps — second wallet may skip connect)
+    await supabase
+      .from('users')
+      .upsert(
+        { wallet_address, last_seen: new Date().toISOString() },
+        { onConflict: 'wallet_address' },
+      );
     
     // Insert swap record
     const { error: insertError } = await supabase
@@ -42,7 +52,7 @@ export async function POST(req: Request) {
         asset_out_issuer,
         amount_in,
         amount_out,
-        amount_out_direct_best: amount_out, // Same as amount_out if no direct comparison available
+        amount_out_direct_best: amount_out_direct_best ?? Math.max(0, Number(amount_out) - Number(savings_usdc || 0)),
         savings_usdc,
         route_fingerprint,
         route_json,
@@ -68,11 +78,18 @@ export async function POST(req: Request) {
       .single();
 
     if (!userError && user) {
+      const volumeUsdc = computeSwapVolumeUsdc({
+        asset_in_code,
+        asset_out_code,
+        amount_in,
+        amount_out,
+      });
+
       await supabase
         .from('users')
         .update({
           swap_count: (user.swap_count || 0) + 1,
-          total_volume_usdc: Number(user.total_volume_usdc || 0) + Number(amount_in || 0),
+          total_volume_usdc: Number(user.total_volume_usdc || 0) + volumeUsdc,
           total_savings_usdc: Number(user.total_savings_usdc || 0) + Number(savings_usdc || 0)
         })
         .eq('wallet_address', wallet_address);

@@ -10,6 +10,7 @@ Smart routing · Best execution · On-chain settlement
 [![Stellar](https://img.shields.io/badge/Stellar-7C3AED?logo=stellar)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Soroban-059669)](https://soroban.stellar.org)
 [![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
+[![CI](https://github.com/anuraggdubey/NovaDex/actions/workflows/ci.yml/badge.svg)](https://github.com/anuraggdubey/NovaDex/actions/workflows/ci.yml)
 
 </div>
 
@@ -105,8 +106,13 @@ Build with the Stellar/Soroban CLI toolchain. After deployment, paste the contra
 npm run dev      # Dev server
 npm run build    # Production build
 npm run lint     # ESLint
-npx tsc --noEmit # Type check
+npm run typecheck # TypeScript check
 ```
+
+## Links
+
+- **Repository:** [github.com/anuraggdubey/NovaDex](https://github.com/anuraggdubey/NovaDex)
+- **Twitter / X:** [@anuraggdubeyy](https://x.com/anuraggdubeyy)
 
 ---
 

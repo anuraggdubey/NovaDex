@@ -1,17 +1,21 @@
 'use client';
 import { create } from 'zustand';
-import { Token, Route } from '@/types';
+import { Token, Route, RouteSourceGroup } from '@/types';
 import { TOKENS, fetchRoutes } from '@/lib/routing';
+import { savingsForRoute, SavingsContext } from '@/lib/savings';
 
 interface SwapState {
   fromToken: Token;
   toToken: Token;
   fromAmount: string;
   toAmount: string;
-  slippageTolerance: string; // '0.1' | '0.5' | '1.0' | 'custom'
+  slippageTolerance: string;
   customSlippageValue: string;
   selectedRoute: Route | null;
+  allRoutes: Route[];
+  routeSources: RouteSourceGroup[];
   alternativeRoutes: Route[];
+  savingsContext: SavingsContext;
   isLoadingRoute: boolean;
   setFromToken: (token: Token) => void;
   setToToken: (token: Token) => void;
@@ -19,33 +23,57 @@ interface SwapState {
   setSlippageTolerance: (tolerance: string, customVal?: string) => void;
   swapDirection: () => void;
   selectRoute: (route: Route) => void;
+  applyExplorerSelection: (params: {
+    fromToken: Token;
+    toToken: Token;
+    fromAmount: string;
+    selectedRoute: Route;
+    allRoutes: Route[];
+    routeSources: RouteSourceGroup[];
+    savingsContext?: SavingsContext;
+  }) => void;
   recalculate: () => void;
   reset: () => void;
 }
+
+const emptySavingsContext: SavingsContext = {};
 
 export const useSwapStore = create<SwapState>((set, get) => {
   const runRouteCalc = async (fromT: Token, toT: Token, amountStr: string) => {
     const num = parseFloat(amountStr);
     if (isNaN(num) || num <= 0) {
-      return { selectedRoute: null, alternativeRoutes: [], toAmount: '' };
+      return {
+        selectedRoute: null,
+        allRoutes: [],
+        routeSources: [],
+        alternativeRoutes: [],
+        savingsContext: emptySavingsContext,
+        toAmount: '',
+      };
     }
-    const { winningRoute, alternativeRoutes } = await fetchRoutes(fromT, toT, num);
+    const result = await fetchRoutes(fromT, toT, num);
     return {
-      selectedRoute: winningRoute,
-      alternativeRoutes,
-      toAmount: winningRoute.outputAmount > 0 ? winningRoute.outputAmount.toFixed(4) : '',
+      selectedRoute: result.winningRoute,
+      allRoutes: result.allRoutes,
+      routeSources: result.sources,
+      alternativeRoutes: result.alternativeRoutes,
+      savingsContext: result.savingsContext ?? emptySavingsContext,
+      toAmount: result.winningRoute.outputAmount > 0 ? result.winningRoute.outputAmount.toFixed(4) : '',
     };
   };
 
   return {
-    fromToken: TOKENS[0], // XLM
-    toToken: TOKENS[1],   // USDC
+    fromToken: TOKENS[0],
+    toToken: TOKENS[1],
     fromAmount: '',
     toAmount: '',
     slippageTolerance: '0.5',
     customSlippageValue: '',
     selectedRoute: null,
+    allRoutes: [],
+    routeSources: [],
     alternativeRoutes: [],
+    savingsContext: emptySavingsContext,
     isLoadingRoute: false,
 
     setFromToken: (token) => {
@@ -76,18 +104,24 @@ export const useSwapStore = create<SwapState>((set, get) => {
       const numVal = parseFloat(amount);
 
       if (isNaN(numVal) || numVal <= 0) {
-        set({ selectedRoute: null, alternativeRoutes: [], toAmount: '' });
+        set({
+          selectedRoute: null,
+          allRoutes: [],
+          routeSources: [],
+          alternativeRoutes: [],
+          savingsContext: emptySavingsContext,
+          toAmount: '',
+        });
         return;
       }
 
       set({ isLoadingRoute: true });
       setTimeout(async () => {
         const { fromAmount: latestAmount } = get();
-        if (latestAmount !== amount) return; // Race condition guard
+        if (latestAmount !== amount) return;
 
         const results = await runRouteCalc(fromToken, toToken, amount);
 
-        // Smart Slippage Engine (Section 4, Feature 3)
         let adaptiveSlippage = get().slippageTolerance;
         const xlmEquiv = numVal / (fromToken.id === 'xlm' ? 1.0 : 0.12);
         if (xlmEquiv > 5000) {
@@ -99,7 +133,7 @@ export const useSwapStore = create<SwapState>((set, get) => {
         }
 
         set({ ...results, slippageTolerance: adaptiveSlippage, isLoadingRoute: false });
-      }, 400); // 400ms debounce as documented
+      }, 400);
     },
 
     setSlippageTolerance: (tolerance, customVal = '') => {
@@ -123,9 +157,29 @@ export const useSwapStore = create<SwapState>((set, get) => {
     },
 
     selectRoute: (route) => {
+      const { allRoutes, savingsContext } = get();
+      const savedAmount = savingsForRoute(route, allRoutes, savingsContext);
       set({
-        selectedRoute: route,
+        selectedRoute: { ...route, savedAmount },
+        alternativeRoutes: allRoutes.filter((r) => r.id !== route.id),
         toAmount: route.outputAmount.toFixed(4),
+      });
+    },
+
+    applyExplorerSelection: ({ fromToken, toToken, fromAmount, selectedRoute, allRoutes, routeSources, savingsContext }) => {
+      const ctx = savingsContext ?? emptySavingsContext;
+      const savedAmount = savingsForRoute(selectedRoute, allRoutes, ctx);
+      set({
+        fromToken,
+        toToken,
+        fromAmount,
+        toAmount: selectedRoute.outputAmount.toFixed(4),
+        selectedRoute: { ...selectedRoute, savedAmount },
+        allRoutes,
+        routeSources,
+        savingsContext: ctx,
+        alternativeRoutes: allRoutes.filter((route) => route.id !== selectedRoute.id),
+        isLoadingRoute: false,
       });
     },
 
@@ -141,7 +195,10 @@ export const useSwapStore = create<SwapState>((set, get) => {
         fromAmount: '',
         toAmount: '',
         selectedRoute: null,
+        allRoutes: [],
+        routeSources: [],
         alternativeRoutes: [],
+        savingsContext: emptySavingsContext,
       });
     },
   };

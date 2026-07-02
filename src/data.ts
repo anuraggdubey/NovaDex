@@ -24,21 +24,23 @@ export const MOCK_GLOBAL_METRICS: GlobalMetrics = {
 export const MOCK_POOLS: Pool[] = [
   {
     id: 'xlm-usdc',
-    tokenA: TOKENS[0], // XLM
-    tokenB: TOKENS[1], // USDC
+    tokenA: TOKENS[0],
+    tokenB: TOKENS[1],
     tvl: 4500000,
     volume24h: 382400,
     feeRate: 0.3,
     routingVolume: 215300,
+    source: 'amm',
   },
   {
     id: 'xlm-aqua',
-    tokenA: TOKENS[0], // XLM
-    tokenB: TOKENS[2], // AQUA
+    tokenA: TOKENS[0],
+    tokenB: TOKENS[2],
     tvl: 1850000,
     volume24h: 195200,
     feeRate: 0.3,
     routingVolume: 125800,
+    source: 'amm',
   },
 ];
 

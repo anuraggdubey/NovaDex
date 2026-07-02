@@ -6,8 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anuraggdubey/NovaDex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/anuraggdubey/NovaDex/issues"
+  },
+  "homepage": "https://github.com/anuraggdubey/NovaDex#readme",
   "dependencies": {
     "@albedo-link/intent": "^0.13.0",
     "@stellar/freighter-api": "^6.0.1",

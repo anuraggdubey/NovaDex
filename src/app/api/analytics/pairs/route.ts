@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { computeSwapVolumeUsdc } from '@/lib/volume';
 
 export async function GET() {
   try {
     const supabase = createServerClient();
     
-    // Group by asset_in_code and asset_out_code
-    // Since Supabase RPC would be better, we'll do simple grouping in JS for MVP
     const { data: swaps, error } = await supabase
       .from('swaps')
-      .select('asset_in_code, asset_out_code, amount_in, savings_usdc');
+      .select('asset_in_code, asset_out_code, amount_in, amount_out, savings_usdc');
 
     if (error) throw error;
 
@@ -20,7 +19,7 @@ export async function GET() {
       if (!pairMap[pairKey]) {
         pairMap[pairKey] = { volume: 0, savings: 0, count: 0 };
       }
-      pairMap[pairKey].volume += Number(s.amount_in || 0);
+      pairMap[pairKey].volume += computeSwapVolumeUsdc(s);
       pairMap[pairKey].savings += Number(s.savings_usdc || 0);
       pairMap[pairKey].count += 1;
     });
