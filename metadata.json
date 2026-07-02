@@ -1,6 +1,0 @@
-{
-  "name": "NovaDEX",
-  "description": "Stellar's first intent-based DEX aggregator. Swap any Stellar asset. Get the best price.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

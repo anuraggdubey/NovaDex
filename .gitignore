@@ -57,6 +57,9 @@ yarn-error.log*
 .pnpm-debug.log*
 debug.log
 history_debug*.json
+apply-theme.js
+index.html
+metadata.json
 
 # ── Private / local docs (do not push) ──
 NovaDEX_v2_Documentation.md
