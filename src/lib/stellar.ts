@@ -126,14 +126,21 @@ export async function buildSwapTransaction(
   slippageTolerance: string,
   options: BuildSwapOptions = {},
 ): Promise<string> {
-  const onChainQuote = await simulateRouterQuote(publicKey, route, amountIn);
-  if (onChainQuote !== null) {
-    const slipPercent = parseFloat(slippageTolerance);
-    const minOutput = route.outputAmount * (1 - slipPercent / 100);
-    const quotedHuman = Number(onChainQuote) / 10_000_000;
-    if (quotedHuman < minOutput * 0.95) {
-      throw new Error('Soroban router quote is below your slippage tolerance');
+  try {
+    const onChainQuote = await simulateRouterQuote(publicKey, route, amountIn);
+    if (onChainQuote !== null) {
+      const slipPercent = parseFloat(slippageTolerance);
+      const minOutput = route.outputAmount * (1 - slipPercent / 100);
+      const quotedHuman = Number(onChainQuote) / 10_000_000;
+      if (quotedHuman < minOutput * 0.95) {
+        throw new Error('Soroban router quote is below your slippage tolerance');
+      }
     }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('slippage tolerance')) {
+      throw err;
+    }
+    // Non-fatal: continue with path payment if Soroban quote simulation fails
   }
 
   const account = await horizonServer.loadAccount(publicKey);

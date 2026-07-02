@@ -41,23 +41,13 @@ function tokenToAddress(token: Token, fallback: string): StellarSdk.Address {
   return Address.fromString(token.issuer);
 }
 
-function buildRouteHopScVal(from: Token, to: Token, fallback: string, source: number) {
-  return nativeToScVal(
-    {
-      asset_in: tokenToAddress(from, fallback),
-      asset_out: tokenToAddress(to, fallback),
-      source,
-      pool_id: Buffer.alloc(32),
-    },
-    {
-      type: {
-        asset_in: ['address'],
-        asset_out: ['address'],
-        source: ['u32'],
-        pool_id: ['bytes'],
-      },
-    },
-  );
+function buildRouteHop(from: Token, to: Token, fallback: string, source: number) {
+  return {
+    asset_in: tokenToAddress(from, fallback),
+    asset_out: tokenToAddress(to, fallback),
+    source,
+    pool_id: Buffer.alloc(32),
+  };
 }
 
 async function getRouterClient(): Promise<SorobanClient | null> {
@@ -100,9 +90,9 @@ export async function simulateRouterQuote(
 
   const from = route.path[0];
   const to = route.path[route.path.length - 1];
-  const hop = buildRouteHopScVal(from, to, publicKey, sourceTypeToCode(route.sourceType));
 
   try {
+    const hop = buildRouteHop(from, to, publicKey, sourceTypeToCode(route.sourceType));
     const assembled = await client.get_quote({
       route: { hops: [hop] },
       amount_in: toStroops(amountIn),
