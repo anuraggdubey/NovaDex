@@ -337,6 +337,60 @@ impl PriceOracle {
             .ok_or(OracleError::NotInitialized)
     }
 
+    /// Record savings proof directly by the trader (user must authorize).
+    pub fn record_savings_user(
+        env: Env,
+        user: Address,
+        pair_id: BytesN<32>,
+        savings_amount: i128,
+        best_direct_price: i128,
+        actual_price: i128,
+        tx_hash: BytesN<32>,
+    ) -> Result<(), OracleError> {
+        user.require_auth();
+        Self::require_initialized(&env)?;
+
+        if savings_amount <= 0 {
+            return Err(OracleError::InvalidSavings);
+        }
+
+        let now = env.ledger().timestamp();
+
+        let current_savings: i128 = env
+            .storage()
+            .persistent()
+            .get(&OracleKey::UserTotalSavings(user.clone()))
+            .unwrap_or(0);
+
+        env.storage()
+            .persistent()
+            .set(&OracleKey::UserTotalSavings(user.clone()), &(current_savings + savings_amount));
+
+        let current_count: u64 = env
+            .storage()
+            .persistent()
+            .get(&OracleKey::UserSavingsCount(user.clone()))
+            .unwrap_or(0);
+
+        env.storage()
+            .persistent()
+            .set(&OracleKey::UserSavingsCount(user.clone()), &(current_count + 1));
+
+        env.events().publish(
+            (Symbol::new(&env, "savings_proof"), user.clone()),
+            (
+                pair_id,
+                savings_amount,
+                best_direct_price,
+                actual_price,
+                tx_hash,
+                now,
+            ),
+        );
+
+        Ok(())
+    }
+
     // ----------------------------------------
     // INTERNAL HELPERS
     // ----------------------------------------
@@ -348,6 +402,13 @@ impl PriceOracle {
             .get(&OracleKey::Admin)
             .ok_or(OracleError::NotInitialized)?;
         admin.require_auth();
+        Ok(())
+    }
+
+    fn require_initialized(env: &Env) -> Result<(), OracleError> {
+        if !env.storage().instance().has(&OracleKey::Admin) {
+            return Err(OracleError::NotInitialized);
+        }
         Ok(())
     }
 

@@ -6,10 +6,13 @@ node_modules/
 out/
 build/
 
-# ── Environment (NEVER commit) ──
+# ── Environment (NEVER commit — contains Supabase keys & secrets) ──
 .env
 .env.local
 .env.*.local
+.env.production
+.env.production.local
+.env.development.local
 
 # ── TypeScript ──
 tsconfig.tsbuildinfo
@@ -24,6 +27,12 @@ supabase/.branches/
 contracts/target/
 **/*.wasm
 **/*.d
+
+# ── Stellar CLI keys (never commit) ──
+.stellar/
+*.secret
+*_SECRET*
+*_secret*
 
 # ── OS junk ──
 .DS_Store
@@ -46,10 +55,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+debug.log
+history_debug*.json
+
+# ── Private / local docs (do not push) ──
+NovaDEX_v2_Documentation.md
+DEPLOYMENT_GUIDE.md
 
 # ── Misc ──
 *.tgz
 .vercel
 .turbo
 coverage/
-DEPLOYMENT_GUIDE.md

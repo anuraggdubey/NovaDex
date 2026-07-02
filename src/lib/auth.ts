@@ -5,6 +5,7 @@
  */
 
 import { verifySignature, buildAuthChallenge } from './stellar';
+import * as StellarSdk from '@stellar/stellar-sdk';
 
 const AUTH_WINDOW_MS = 5 * 60 * 1000; // 5-minute validity window for challenge
 
@@ -15,19 +16,42 @@ const AUTH_WINDOW_MS = 5 * 60 * 1000; // 5-minute validity window for challenge
  *
  * @returns true if the signature is valid and the timestamp is fresh
  */
+function decodeSignatureBuffer(signature: string): Buffer {
+  const trimmed = signature.trim();
+  if (/^[0-9a-fA-F]+$/.test(trimmed)) {
+    return Buffer.from(trimmed, 'hex');
+  }
+  return Buffer.from(trimmed, 'base64');
+}
+
 export function verifyWalletSignature(
   publicKey: string,
   signature: string,
-  timestamp: number
+  timestamp: number,
+  signedPayload?: string,
 ): boolean {
-  // Reject stale challenges (prevents replay attacks)
   const now = Date.now();
   if (Math.abs(now - timestamp) > AUTH_WINDOW_MS) {
     return false;
   }
 
   const message = buildAuthChallenge(publicKey, timestamp);
-  return verifySignature(publicKey, message, signature);
+  if (verifySignature(publicKey, message, signature)) {
+    return true;
+  }
+
+  if (signedPayload) {
+    try {
+      const keypair = StellarSdk.Keypair.fromPublicKey(publicKey);
+      const payloadBytes = Buffer.from(signedPayload, 'hex');
+      const signatureBytes = decodeSignatureBuffer(signature);
+      return keypair.verify(payloadBytes, signatureBytes);
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
 }
 
 /**

@@ -348,6 +348,40 @@ impl AggregatorRouter {
         Ok(total_out)
     }
 
+    /// On-chain attestation after PathPaymentStrictSend executes liquidity.
+    /// Does not transfer tokens — the enclosing Stellar transaction handles liquidity.
+    pub fn attest_swap(
+        env: Env,
+        user: Address,
+        amount_in: i128,
+        min_out: i128,
+        quoted_out: i128,
+        deadline: u64,
+        hop_count: u32,
+        source: u32,
+    ) -> Result<(), RouterError> {
+        user.require_auth();
+        Self::require_initialized(&env)?;
+
+        let now = env.ledger().timestamp();
+        if now > deadline {
+            return Err(RouterError::Expired);
+        }
+        if amount_in <= 0 {
+            return Err(RouterError::ZeroAmount);
+        }
+        if quoted_out < min_out {
+            return Err(RouterError::InsufficientOutput);
+        }
+
+        env.events().publish(
+            (Symbol::new(&env, "attest_swap"), user.clone()),
+            (amount_in, quoted_out, hop_count, source, now),
+        );
+
+        Ok(())
+    }
+
     // ----------------------------------------
     // INTERNAL HELPERS
     // ----------------------------------------

@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
-import { isValidStellarPublicKey } from '@/lib/auth';
+import { requireWalletAuth } from '@/lib/apiAuth';
 
-// POST /api/favourites/add
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { wallet_address, asset_in_code, asset_in_issuer, asset_out_code, asset_out_issuer, label } = body;
 
-    if (!wallet_address || !isValidStellarPublicKey(wallet_address)) {
-      return NextResponse.json({ error: 'Invalid wallet address' }, { status: 400 });
-    }
+    const authError = requireWalletAuth(request, wallet_address);
+    if (authError) return authError;
 
     const supabase = createServerClient();
 

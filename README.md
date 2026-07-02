@@ -18,9 +18,31 @@ Smart routing · Best execution · On-chain settlement
 
 ## What is NovaDEX?
 
-NovaDEX finds the **optimal swap route** across Stellar's liquidity sources (SDEX, Aquarius AMM pools) and executes it through a single Soroban transaction — giving you the best price with minimal slippage.
+NovaDEX finds the **optimal swap route** across Stellar's liquidity sources (SDEX, Aquarius AMM pools) and executes it through a single atomic transaction — Soroban router attestation, path-payment liquidity, and on-chain savings proof.
 
-## 🌍 Real-World Utility (The "Binance Example")
+## Live Demo & Submission Proof
+
+| Resource | Link |
+|----------|------|
+| **Live App** | _Add your deployed URL here (e.g. `https://novadex.vercel.app`)_ |
+| **Demo Video** | _Add your demo video URL here (e.g. Loom / YouTube)_ |
+| **Repository** | [github.com/anuraggdubey/NovaDex](https://github.com/anuraggdubey/NovaDex) |
+| **Twitter / X** | [@anuraggdubeyy](https://x.com/anuraggdubeyy) |
+
+## Deployed Contracts (Stellar Testnet)
+
+Redeployed **2026-07-02** with `attest_swap` (router) and `record_savings_user` (oracle).
+
+| Contract | ID | Explorer |
+|----------|-----|----------|
+| **Aggregator Router** | `CDUBGNAQCVTCPNRE3AUVFYPYE6UWFBVHPGX4BRBDGFNWBV7WERNC3Q7U` | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CDUBGNAQCVTCPNRE3AUVFYPYE6UWFBVHPGX4BRBDGFNWBV7WERNC3Q7U) |
+| **Price Oracle** | `CBPPZGP6ER3EGT5LIJNOWQE3QYRNFH5FRCT4ZHB2D6RPXV5SEV2H2RLK` | [Stellar Expert](https://stellar.expert/explorer/testnet/contract/CBPPZGP6ER3EGT5LIJNOWQE3QYRNFH5FRCT4ZHB2D6RPXV5SEV2H2RLK) |
+
+- **Network:** Stellar Testnet  
+- **Protocol fee:** 10 bps (0.1%)  
+- **Admin:** `GBOOE7MNH34TFXUJFY5B2IFUTKKJSSH77JDPA3HTHWLGKGIOCOVHPPW5`
+
+## Real-World Utility (The "Binance Example")
 
 How does swapping tokens on a DEX actually translate to real money?
 
@@ -66,7 +88,7 @@ npm install
 
 # 2. Configure environment
 cp .env.example .env.local
-# Fill in your Supabase keys + contract IDs
+# Fill in your Supabase keys (never commit .env.local)
 
 # 3. Run Supabase schema
 # Paste supabase/schema.sql in Supabase SQL Editor
@@ -85,37 +107,39 @@ Open **http://localhost:3000**
 | `NEXT_PUBLIC_HORIZON_URL` | Horizon API endpoint |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (**secret — server only**) |
 | `NEXT_PUBLIC_AGGREGATOR_CONTRACT_ID` | Deployed router contract ID |
 | `NEXT_PUBLIC_ORACLE_CONTRACT_ID` | Deployed oracle contract ID |
+| `NEXT_PUBLIC_TESTNET_ISSUER` | Testnet token issuer (testnet only) |
 
-> See [`.env.example`](.env.example) for the full template.
+> See [`.env.example`](.env.example) for the full template. **Never commit `.env.local`** — it contains Supabase service keys.
 
 ## Contracts
 
 Soroban smart contracts in `contracts/` (Rust workspace):
 
-- **`aggregator_router`** — Executes multi-hop swaps atomically on-chain
-- **`price_oracle`** — Provides reliable price feeds for route comparison
+- **`aggregator_router`** — Route quotes, `attest_swap` on-chain settlement attestation, split swap logic
+- **`price_oracle`** — Price checkpoints and `record_savings_user` on-chain savings proof
 
-Build with the Stellar/Soroban CLI toolchain. After deployment, paste the contract IDs into `.env.local`.
+Build and redeploy:
+
+```bash
+cd contracts
+stellar contract build
+# See DEPLOYMENT_GUIDE.md for full deploy + initialize steps
+```
 
 ## Scripts
 
 ```bash
-npm run dev      # Dev server
-npm run build    # Production build
-npm run lint     # ESLint
+npm run dev       # Dev server
+npm run build     # Production build
+npm run lint      # ESLint
 npm run typecheck # TypeScript check
 ```
-
-## Links
-
-- **Repository:** [github.com/anuraggdubey/NovaDex](https://github.com/anuraggdubey/NovaDex)
-- **Twitter / X:** [@anuraggdubeyy](https://x.com/anuraggdubeyy)
 
 ---
 
 <div align="center">
-<sub>Built for the Stellar ecosystem ◆</sub>
+<sub>Built for the Stellar ecosystem ◆ Stellar Hackathon 2026</sub>
 </div>

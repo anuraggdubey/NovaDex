@@ -28,8 +28,8 @@ import {
 } from 'recharts';
 
 // --- Stellar signing ---
-import { signTransaction } from '@stellar/freighter-api';
 import { fetchBalances, buildSwapTransaction, submitTransaction, buildTrustlineTransaction } from '@/lib/stellar';
+import { signWalletTransaction, buildAuthenticatedHeaders } from '@/lib/walletSign';
 
 // ============================================================
 // CARD NAVIGATION
@@ -650,26 +650,25 @@ function WalletButton() {
   };
 
   const handleAddTrustlines = async () => {
-    if (!publicKey) return;
+    if (!publicKey || !provider) return;
     setDropdownOpen(false);
     try {
       addToast('Building trustline transaction...', 'info');
       const xdr = await buildTrustlineTransaction(publicKey);
-      addToast('Awaiting Freighter signature...', 'warning');
-      const { signTransaction } = await import('@stellar/freighter-api');
-      const signedResponse = await signTransaction(xdr, { networkPassphrase: 'Test SDF Network ; September 2015' });
-      if (signedResponse.error) throw new Error(typeof signedResponse.error === 'string' ? signedResponse.error : JSON.stringify(signedResponse.error));
+      addToast(`Awaiting ${provider === 'albedo' ? 'Albedo' : 'Freighter'} signature...`, 'warning');
+      const signedXdr = await signWalletTransaction(xdr, provider, publicKey);
       addToast('Submitting to Stellar...', 'info');
-      const submitResponse = await submitTransaction(signedResponse.signedTxXdr);
+      const submitResponse = await submitTransaction(signedXdr);
       if (submitResponse.successful) {
         addToast('Trustlines added successfully!', 'success');
-        fetchBalances(publicKey).then(b => useWalletStore.setState({ balances: b }));
+        fetchBalances(publicKey).then((b) => useWalletStore.setState({ balances: b }));
       } else {
         throw new Error('Transaction submission failed');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      addToast(`Failed to add trustlines: ${err.message || 'Unknown error'}`, 'error');
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      addToast(`Failed to add trustlines: ${message}`, 'error');
     }
   };
 
@@ -1011,7 +1010,7 @@ function Navbar({ currentPath, onNavigate }: { currentPath: string; onNavigate: 
 // ============================================================
 
 function SwapView() {
-  const { publicKey, balances, connect } = useWalletStore();
+  const { publicKey, balances, connect, provider } = useWalletStore();
   const { addToast } = useToastStore();
   const {
     fromToken, toToken, fromAmount, toAmount, slippageTolerance, customSlippageValue,
@@ -1040,7 +1039,7 @@ function SwapView() {
   };
 
   const handleExecuteSwap = async () => {
-    if (!publicKey || !selectedRoute) return;
+    if (!publicKey || !selectedRoute || !provider) return;
     if (selectedRoute.id === 'route-empty') {
       addToast('No liquidity path exists for these tokens on testnet.', 'error');
       setConfirmOpen(false);
@@ -1051,13 +1050,26 @@ function SwapView() {
     let txHash = null;
     let finalStatus = 'reverted';
     try {
+      addToast('Simulating Soroban router quote...', 'info');
+      const savedAmountPreview = savingsForRoute(selectedRoute, allRoutes, savingsContext);
+      const savingsUsdcPreview = computeSavingsUsdc({
+        savings_amount: savedAmountPreview,
+        asset_in_code: fromToken.ticker,
+        asset_out_code: toToken.ticker,
+        amount_in: parseFloat(fromAmount),
+        amount_out: parseFloat(toAmount),
+      });
+
       addToast('Building transaction...', 'info');
-      const xdr = await buildSwapTransaction(publicKey, selectedRoute, fromAmount, activeSlippage || '0.5');
-      addToast('Awaiting Freighter signature...', 'warning');
-      const signedResponse = await signTransaction(xdr, { networkPassphrase: 'Test SDF Network ; September 2015' });
-      if (signedResponse.error) throw new Error(typeof signedResponse.error === 'string' ? signedResponse.error : JSON.stringify(signedResponse.error));
+      const xdr = await buildSwapTransaction(publicKey, selectedRoute, fromAmount, activeSlippage || '0.5', {
+        allRoutes,
+        savingsUsdc: savingsUsdcPreview,
+        savingsContext,
+      });
+      addToast(`Awaiting ${provider === 'albedo' ? 'Albedo' : 'Freighter'} signature...`, 'warning');
+      const signedXdr = await signWalletTransaction(xdr, provider, publicKey);
       addToast('Submitting to Stellar...', 'info');
-      const submitResponse = await submitTransaction(signedResponse.signedTxXdr);
+      const submitResponse = await submitTransaction(signedXdr);
       if (submitResponse.successful) {
         txHash = submitResponse.hash;
         finalStatus = 'completed';
@@ -1308,23 +1320,30 @@ function SwapView() {
 // ============================================================
 
 function HistoryView({ refreshKey = 0 }: { refreshKey?: number }) {
-  const { publicKey, connect } = useWalletStore();
+  const { publicKey, provider, connect } = useWalletStore();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
 
-  const loadHistory = useCallback(() => {
-    if (!publicKey) return;
+  const loadHistory = useCallback(async () => {
+    if (!publicKey || !provider) return;
     setLoading(true);
-    fetch(`/api/users/${publicKey}/history?t=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => {
-        setHistory(d.swaps || []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [publicKey]);
+    try {
+      const headers = await buildAuthenticatedHeaders(publicKey, provider);
+      const response = await fetch(`/api/users/${publicKey}/history?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load history');
+      setHistory(data.swaps || []);
+    } catch {
+      setHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [publicKey, provider]);
 
   useEffect(() => {
     loadHistory();
@@ -1341,8 +1360,8 @@ function HistoryView({ refreshKey = 0 }: { refreshKey?: number }) {
       <div className="w-full max-w-md mx-auto pt-12">
         <EmptyState
           title="Connect wallet to view history"
-          description="Your swap history is linked to your Freighter wallet address."
-          btnLabel="Connect Freighter"
+          description="Your swap history is linked to your connected wallet address."
+          btnLabel="Connect Wallet"
           onBtnClick={() => connect('freighter')}
           icon={<History className="w-8 h-8 text-nd-accent" />}
         />
@@ -1431,7 +1450,7 @@ function HistoryView({ refreshKey = 0 }: { refreshKey?: number }) {
 // ============================================================
 
 function AnalyticsView({ refreshKey = 0 }: { refreshKey?: number }) {
-  const { publicKey } = useWalletStore();
+  const { publicKey, provider } = useWalletStore();
   const dataTick = useDataStore((s) => s.tick);
   const combinedRefresh = refreshKey + dataTick;
   const [globalStats, setGlobalStats] = useState<any>(null);
@@ -1450,16 +1469,24 @@ function AnalyticsView({ refreshKey = 0 }: { refreshKey?: number }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const loadPersonalStats = useCallback(() => {
-    if (!publicKey) {
+  const loadPersonalStats = useCallback(async () => {
+    if (!publicKey || !provider) {
       setAnalytics(null);
       return;
     }
-    fetch(`/api/users/${publicKey}/analytics?t=${Date.now()}`, { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => { if (!d.error) setAnalytics(d); })
-      .catch(() => setAnalytics(null));
-  }, [publicKey]);
+    try {
+      const headers = await buildAuthenticatedHeaders(publicKey, provider);
+      const response = await fetch(`/api/users/${publicKey}/analytics?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to load analytics');
+      setAnalytics(data);
+    } catch {
+      setAnalytics(null);
+    }
+  }, [publicKey, provider]);
 
   useEffect(() => {
     loadGlobalStats();
@@ -1578,6 +1605,7 @@ function RouteExplorerView({ onNavigate }: { onNavigate: (p: string) => void }) 
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [searching, setSearching] = useState(false);
   const [slider, setSlider] = useState(50);
+  const [explorerSavingsContext, setExplorerSavingsContext] = useState<{ sdexBest: number; aquaBest: number } | undefined>();
 
   const run = useCallback(async () => {
     const val = parseFloat(amount);
@@ -1592,6 +1620,7 @@ function RouteExplorerView({ onNavigate }: { onNavigate: (p: string) => void }) 
       const result = await fetchRoutes(assetA, assetB, val);
       setRoutes(result.allRoutes);
       setRouteSources(result.sources);
+      setExplorerSavingsContext(result.savingsContext);
       setSelectedRoute(result.winningRoute.id !== 'route-empty' ? result.winningRoute : result.allRoutes[0] ?? null);
     } finally {
       setSearching(false);
@@ -1615,6 +1644,7 @@ function RouteExplorerView({ onNavigate }: { onNavigate: (p: string) => void }) 
       selectedRoute,
       allRoutes: routes,
       routeSources,
+      savingsContext: explorerSavingsContext,
     });
     onNavigate('swap');
   };
