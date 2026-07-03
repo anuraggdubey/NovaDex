@@ -22,21 +22,19 @@ NovaDEX finds the **optimal swap route** across Stellar's liquidity sources (SDE
 
 ---
 
-## Hackathon Submission Checklist
+## Submission Checklist
 
-| Requirement | Status | Details |
-|-------------|--------|---------|
-| **Public GitHub repository** | ✅ | [github.com/anuraggdubey/NovaDex](https://github.com/anuraggdubey/NovaDex) |
-| **README with complete documentation** | ✅ | This file — setup, architecture, contracts, API, screenshots, proof |
-| **15+ meaningful commits** | 🔶 | `git log --oneline` on `main` — push this README + screenshot update to reach 15+ |
-| **Live demo link** | 🔗 | _Add your deployed URL below_ |
-| **Contract deployment address** | ✅ | Testnet Soroban IDs in [Deployed Contracts](#deployed-contracts-stellar-testnet) |
-| **Product UI screenshots** | ✅ | [Screenshots](#screenshots) below |
-| **Mobile responsive design** | ✅ | Mobile views in [Screenshots](#screenshots) |
-| **Analytics / monitoring setup** | ✅ | Analytics dashboard + Supabase-backed global stats |
-| **Demo video link** | 🔗 | _Add your Loom / YouTube URL below_ |
-| **10+ user wallet interactions** | 🔗 | _Add proof link or table below_ |
-| **Basic user feedback summary** | 🔗 | _Add feedback summary below_ |
+| Requirement | Details |
+|-------------|---------|
+| **Public GitHub repository** | [github.com/anuraggdubey/NovaDex](https://github.com/anuraggdubey/NovaDex) |
+| **README with complete documentation** | This file — setup, architecture, contracts, API, screenshots, proof |
+| **Live demo link** | https://novaxdex-app.vercel.app |
+| **Contract deployment address** | Testnet Soroban IDs in [Deployed Contracts](#deployed-contracts-stellar-testnet) |
+| **Product UI screenshots** | [Screenshots](#screenshots) below |
+| **Mobile responsive design** | Mobile views in [Screenshots](#screenshots) |
+| **Analytics / monitoring setup** | Analytics dashboard + Supabase-backed global stats |
+| **Demo video link** | _Add your Loom / YouTube URL below_ |
+| **10+ user wallet address proof with feedback sheet** | [User feedback form](https://forms.gle/cVSUxiUNDhT6NTjW8) · [Feedback responses sheet](https://docs.google.com/spreadsheets/d/1qq6sHBSlt3gTw6xGoiXBCnT-gp_jiXNI5XpwNtn1bWU/edit?resourcekey=&gid=1713052659#gid=1713052659) |
 
 ---
 
@@ -44,9 +42,11 @@ NovaDEX finds the **optimal swap route** across Stellar's liquidity sources (SDE
 
 | Resource | Link |
 |----------|------|
-| **Live App** | _TODO: `https://your-novadex-app.vercel.app`_ |
+| **Live App** | _TODO: `https://novaxdex-app.vercel.app`_ |
 | **Demo Video** | _TODO: `https://www.loom.com/share/your-video-id` or `https://youtu.be/your-video-id`_ |
 | **Repository** | [github.com/anuraggdubey/NovaDex](https://github.com/anuraggdubey/NovaDex) |
+| **User Feedback Form** | [forms.gle/cVSUxiUNDhT6NTjW8](https://forms.gle/cVSUxiUNDhT6NTjW8) |
+| **Feedback Responses Sheet** | [Google Sheets](https://docs.google.com/spreadsheets/d/1qq6sHBSlt3gTw6xGoiXBCnT-gp_jiXNI5XpwNtn1bWU/edit?resourcekey=&gid=1713052659#gid=1713052659) |
 | **Twitter / X** | [@anuraggdubeyy](https://x.com/anuraggdubeyy) |
 
 ### Proof of 10+ User Wallet Interactions
@@ -59,50 +59,26 @@ _WIP — replace with your live proof before final submission._
 | Total completed swaps | _TODO: e.g. 14+_ | Analytics dashboard / Supabase `swaps` table |
 | Stellar Expert tx links | _TODO: paste 2–3 example tx hashes_ | [Stellar Expert Testnet](https://stellar.expert/explorer/testnet) |
 
-**Example format (fill in real data):**
-
-```
-Wallet GXXXX...XXXX — 3 swaps — https://stellar.expert/explorer/testnet/account/GXXXX...XXXX
-Wallet GYYYY...YYYY — 2 swaps — https://stellar.expert/explorer/testnet/account/GYYYY...YYYY
-…
-```
-
-### User Feedback Summary
-
-_WIP — add 3–5 bullet points from testers, Discord, or hackathon judges._
-
-- _TODO: e.g. "Swap flow with Freighter was smooth; route savings were visible before confirming."_
-- _TODO: e.g. "Mobile layout worked well on iPhone Safari."_
-- _TODO: e.g. "Albedo wallet signing for history/analytics after auth fix."_
-- _TODO: Add any constructive feedback received._
-
----
 
 ## Screenshots
 
 ### Product UI (Desktop)
 
-_Desktop screenshot — add `docs/screenshots/desktop-swap.png` and uncomment:_
-
-<!--
-![NovaDEX desktop swap UI](docs/screenshots/desktop-swap.png)
--->
+![NovaDEX desktop landing](docs/screenshots/desktop-landing.png)
 
 ### Mobile Responsive Design
 
-**Landing page**
-
-![NovaDEX mobile landing](docs/screenshots/mobile-landing.png)
-
-**Swap interface**
-
-![NovaDEX mobile swap](docs/screenshots/mobile-swap.png)
+<p align="center">
+  <img src="docs/screenshots/mobile-landing.png" width="260" alt="NovaDEX mobile landing" />
+  <br /><br />
+  <img src="docs/screenshots/mobile-swap.png" width="260" alt="NovaDEX mobile swap" />
+  <br /><br />
+  <img src="docs/screenshots/mobile-analytics.png" width="260" alt="NovaDEX mobile analytics" />
+</p>
 
 ### Analytics & Monitoring
 
 Platform-wide volume, swap count, savings, and unique wallets — backed by Supabase and the `/api/analytics/global` endpoint.
-
-![NovaDEX mobile analytics](docs/screenshots/mobile-analytics.png)
 
 ---
 
