@@ -20,6 +20,8 @@ Smart routing · Best execution · On-chain settlement
 
 NovaDEX finds the **optimal swap route** across Stellar's liquidity sources (SDEX, Aquarius AMM pools) and executes it through a single atomic transaction — Soroban router attestation, path-payment liquidity, and on-chain savings proof.
 
+> **Before swapping (testnet):** Connect your wallet, open the wallet dropdown, and select **Add testnet trustlines** so your account can receive non-XLM assets (e.g. USDC) before you swap.
+
 ---
 
 ## Checklist

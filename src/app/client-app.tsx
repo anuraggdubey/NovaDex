@@ -1103,7 +1103,7 @@ function SwapView() {
          if (opCodes && opCodes.length > 0) {
            errorMsg = `Stellar Error: ${opCodes.join(', ')}`;
            if (opCodes.includes('op_no_trust')) {
-             errorMsg = `Missing Trustline! You must add a trustline for ${toToken.ticker} in your Freighter wallet before you can receive it.`;
+             errorMsg = `Missing trustline! Add a trustline for ${toToken.ticker} from your wallet dropdown → Add testnet trustlines.`;
            } else if (opCodes.includes('op_underfunded')) {
              errorMsg = 'Insufficient balance to complete this swap and pay network fees.';
            } else if (opCodes.includes('op_too_few_offers')) {
@@ -1168,6 +1168,13 @@ function SwapView() {
   return (
     <div className="w-full max-w-[32rem] mx-auto">
       <PageHeader title="Swap" description="Best-price routing across SDEX, Aquarius, and split execution." />
+
+      <div className="mb-4 flex gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50 px-3.5 py-3 text-xs text-amber-950">
+        <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-700" />
+        <p>
+          <span className="font-semibold">Before swapping:</span> add trustlines for testnet assets from your connected wallet dropdown → <span className="font-semibold">Add testnet trustlines</span>.
+        </p>
+      </div>
 
       <div className="nd-flat-card nd-flat-card--mint">
         <div className="nd-flat-card-content p-5 md:p-6 space-y-1 relative !border-b-0">
