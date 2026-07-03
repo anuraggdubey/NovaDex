@@ -3,13 +3,8 @@
 
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { Token, Route } from '@/types';
-import { getNetworkPassphrase } from '@/lib/network';
+import { getHorizonUrl, getNetworkPassphrase } from '@/lib/network';
 import {
-  buildAttestSwapOperation,
-  buildRecordSavingsOperation,
-  oracleSupports,
-  prepareSwapTransaction,
-  routerSupports,
   simulateRouterQuote,
   submitSorobanTransaction,
   transactionHasSorobanOps,
@@ -144,8 +139,6 @@ export async function buildSwapTransaction(
   }
 
   const account = await horizonServer.loadAccount(publicKey);
-  const slipPercent = parseFloat(slippageTolerance);
-  const minOutput = route.outputAmount * (1 - slipPercent / 100);
 
   const builder = new StellarSdk.TransactionBuilder(account, {
     fee: StellarSdk.BASE_FEE,
@@ -164,43 +157,9 @@ export async function buildSwapTransaction(
     addPathPaymentOperation(builder, route, amountIn, slippageTolerance, publicKey);
   }
 
-  const [hasAttest, hasRecordSavings] = await Promise.all([
-    routerSupports('attest_swap'),
-    oracleSupports('record_savings_user'),
-  ]);
-
-  if (hasAttest) {
-    builder.addOperation(
-      buildAttestSwapOperation(publicKey, route, amountIn, minOutput, route.outputAmount),
-    );
-  }
-
-  if (hasRecordSavings && (options.savingsUsdc ?? 0) > 0) {
-    const from = route.path[0];
-    const to = route.path[route.path.length - 1];
-    const pairLabel = `${from.ticker}/${to.ticker}`;
-    const bestDirect =
-      options.savingsContext?.sdexBest ??
-      options.savingsContext?.aquaBest ??
-      Math.max(0, route.outputAmount - (options.savingsUsdc ?? 0));
-
-    builder.addOperation(
-      buildRecordSavingsOperation(
-        publicKey,
-        pairLabel,
-        options.savingsUsdc ?? 0,
-        bestDirect,
-        route.outputAmount,
-        route.fingerprint,
-      ),
-    );
-  }
-
-  let transaction = builder.setTimeout(180).build();
-
-  if (transactionHasSorobanOps(transaction)) {
-    transaction = await prepareSwapTransaction(transaction);
-  }
+  // Classic path payment only — Soroban prepareTransaction rejects multi-op txs
+  // (path payment + invokeHostFunction). On-chain attest/savings stay off-chain via API.
+  const transaction = builder.setTimeout(180).build();
 
   return transaction.toXDR();
 }
@@ -228,18 +187,67 @@ export async function buildTrustlineTransaction(publicKey: string): Promise<stri
   return builder.setTimeout(60).build().toXDR();
 }
 
-export async function submitTransaction(signedXdr: string) {
-  const transaction = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
+export type SubmitResult = { successful: true; hash: string };
+
+export function formatHorizonSubmitError(data: Record<string, unknown>): string {
+  const extras = data.extras as { result_codes?: { transaction?: string; operations?: string[] } } | undefined;
+  if (extras?.result_codes) {
+    const { transaction: txCode, operations: opCodes } = extras.result_codes;
+    if (opCodes?.length) {
+      return `Stellar Error: ${opCodes.join(', ')}${txCode ? ` (tx: ${txCode})` : ''}`;
+    }
+    if (txCode) return `Stellar Error: ${txCode}`;
+  }
+  return String(data.detail || data.title || 'Transaction submission failed');
+}
+
+/** POST signed envelope XDR directly — avoids SDK re-encoding issues (Albedo). */
+export async function submitRawTransaction(signedXdr: string): Promise<SubmitResult> {
+  const form = new URLSearchParams();
+  form.set('tx', signedXdr.trim());
+  const response = await fetch(`${getHorizonUrl()}/transactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form.toString(),
+  });
+  const data = (await response.json()) as Record<string, unknown>;
+  if (!response.ok) {
+    const error = new Error(formatHorizonSubmitError(data)) as Error & {
+      response?: { data: Record<string, unknown> };
+    };
+    error.response = { data };
+    throw error;
+  }
+  return { successful: true, hash: String(data.hash) };
+}
+
+export async function submitTransaction(signedXdr: string): Promise<SubmitResult> {
+  let transaction: StellarSdk.Transaction | StellarSdk.FeeBumpTransaction;
+  try {
+    transaction = StellarSdk.TransactionBuilder.fromXDR(signedXdr, NETWORK_PASSPHRASE);
+  } catch {
+    return submitRawTransaction(signedXdr);
+  }
 
   if (transaction instanceof StellarSdk.Transaction && transactionHasSorobanOps(transaction)) {
-    return submitSorobanTransaction(signedXdr);
+    const sorobanResult = await submitSorobanTransaction(signedXdr);
+    return { successful: true, hash: sorobanResult.hash };
   }
 
   if (!(transaction instanceof StellarSdk.Transaction)) {
     throw new Error('Fee bump transactions are not supported');
   }
 
-  return horizonServer.submitTransaction(transaction);
+  try {
+    const result = await horizonServer.submitTransaction(transaction);
+    return { successful: true, hash: result.hash };
+  } catch (err: unknown) {
+    const horizonErr = err as { response?: { data?: Record<string, unknown> } };
+    if (horizonErr.response?.data) {
+      throw err;
+    }
+    return submitRawTransaction(signedXdr);
+  }
 }
 
 export function verifySignature(publicKey: string, message: string, signature: string): boolean {

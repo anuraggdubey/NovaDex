@@ -1,4 +1,12 @@
 {
   "extends": ["next/core-web-vitals"],
-  "ignorePatterns": ["src/App.tsx"]
+  "ignorePatterns": [
+    "src/App.tsx",
+    "src/store.ts",
+    "src/data.ts",
+    "src/utils/**",
+    "src/components/WalletAndToast.tsx",
+    "src/components/TokenComponents.tsx",
+    "src/components/RouteComponents.tsx"
+  ]
 }

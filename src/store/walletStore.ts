@@ -1,6 +1,7 @@
 'use client';
 import { create } from 'zustand';
 import { fetchBalances } from '@/lib/stellar';
+import { clearWalletAuthCache } from '@/lib/walletSign';
 import { useToastStore } from './toastStore';
 
 interface WalletState {
@@ -105,6 +106,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   },
 
   disconnect: () => {
+    clearWalletAuthCache();
     set({
       publicKey: null,
       provider: null,

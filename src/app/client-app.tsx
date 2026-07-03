@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, createContext, useContext } from 'react';
+import React, { useState, useCallback, useEffect, useRef, createContext, useContext } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowDownUp, Activity, History, BookOpen, Layers, Coins, ExternalLink,
@@ -28,8 +28,8 @@ import {
 } from 'recharts';
 
 // --- Stellar signing ---
-import { fetchBalances, buildSwapTransaction, submitTransaction, buildTrustlineTransaction } from '@/lib/stellar';
-import { signWalletTransaction, buildAuthenticatedHeaders } from '@/lib/walletSign';
+import { fetchBalances, buildSwapTransaction, buildTrustlineTransaction } from '@/lib/stellar';
+import { signAndSubmitWalletTransaction, buildAuthenticatedHeaders, clearWalletAuthCache } from '@/lib/walletSign';
 
 // ============================================================
 // CARD NAVIGATION
@@ -656,9 +656,13 @@ function WalletButton() {
       addToast('Building trustline transaction...', 'info');
       const xdr = await buildTrustlineTransaction(publicKey);
       addToast(`Awaiting ${provider === 'albedo' ? 'Albedo' : 'Freighter'} signature...`, 'warning');
-      const signedXdr = await signWalletTransaction(xdr, provider, publicKey);
       addToast('Submitting to Stellar...', 'info');
-      const submitResponse = await submitTransaction(signedXdr);
+      const submitResponse = await signAndSubmitWalletTransaction(
+        xdr,
+        provider,
+        publicKey,
+        'NovaDEX trustlines',
+      );
       if (submitResponse.successful) {
         addToast('Trustlines added successfully!', 'success');
         fetchBalances(publicKey).then((b) => useWalletStore.setState({ balances: b }));
@@ -1067,9 +1071,13 @@ function SwapView() {
         savingsContext,
       });
       addToast(`Awaiting ${provider === 'albedo' ? 'Albedo' : 'Freighter'} signature...`, 'warning');
-      const signedXdr = await signWalletTransaction(xdr, provider, publicKey);
       addToast('Submitting to Stellar...', 'info');
-      const submitResponse = await submitTransaction(signedXdr);
+      const submitResponse = await signAndSubmitWalletTransaction(
+        xdr,
+        provider,
+        publicKey,
+        'NovaDEX swap',
+      );
       if (submitResponse.successful) {
         txHash = submitResponse.hash;
         finalStatus = 'completed';
@@ -1323,24 +1331,47 @@ function HistoryView({ refreshKey = 0 }: { refreshKey?: number }) {
   const { publicKey, provider, connect } = useWalletStore();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
+  const loadInFlight = useRef(false);
 
-  const loadHistory = useCallback(async () => {
-    if (!publicKey || !provider) return;
+  const loadHistory = useCallback(async (forceRefresh = false) => {
+    if (!publicKey || !provider || loadInFlight.current) return;
+    loadInFlight.current = true;
     setLoading(true);
+    if (forceRefresh) {
+      clearWalletAuthCache(publicKey, provider);
+      setAuthError(null);
+    }
     try {
-      const headers = await buildAuthenticatedHeaders(publicKey, provider);
+      const headers = await buildAuthenticatedHeaders(publicKey, provider, { forceRefresh });
       const response = await fetch(`/api/users/${publicKey}/history?t=${Date.now()}`, {
         cache: 'no-store',
         headers,
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to load history');
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearWalletAuthCache(publicKey, provider);
+          setAuthError(data.error || 'Wallet signature verification failed');
+          setHistory([]);
+          return;
+        }
+        throw new Error(data.error || 'Failed to load history');
+      }
+      setAuthError(null);
       setHistory(data.swaps || []);
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load history';
+      if (/reject|cancel|denied/i.test(message)) {
+        setAuthError('Signature is required to view your swap history');
+      } else {
+        setAuthError(message);
+      }
       setHistory([]);
     } finally {
+      loadInFlight.current = false;
       setLoading(false);
     }
   }, [publicKey, provider]);
@@ -1349,13 +1380,7 @@ function HistoryView({ refreshKey = 0 }: { refreshKey?: number }) {
     loadHistory();
   }, [loadHistory, refreshKey]);
 
-  useEffect(() => {
-    const onFocus = () => loadHistory();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [loadHistory]);
-
-  if (!publicKey) {
+  if (!publicKey || !provider) {
     return (
       <div className="w-full max-w-md mx-auto pt-12">
         <EmptyState
@@ -1381,6 +1406,19 @@ function HistoryView({ refreshKey = 0 }: { refreshKey?: number }) {
   return (
     <div className="space-y-6">
       <PageHeader title="History" description="Swap records for your connected wallet, synced from NovaDEX routing." />
+
+      {authError && (
+        <div className="nd-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-amber-200 bg-amber-50">
+          <p className="text-sm text-amber-900">{authError}</p>
+          <button
+            type="button"
+            onClick={() => loadHistory(true)}
+            className="px-4 py-2 text-xs font-semibold rounded-lg bg-nd-ink text-white hover:opacity-90"
+          >
+            Sign again
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <MetricCard label="Your total savings" value={formatSavingsUsd(history.reduce((a, s) => a + effectiveSavingsUsdc(s), 0))} subValue="Extra output vs single-venue routes" footerLabel="View analytics" footerTo="analytics" />
@@ -1456,6 +1494,8 @@ function AnalyticsView({ refreshKey = 0 }: { refreshKey?: number }) {
   const [globalStats, setGlobalStats] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const personalLoadInFlight = useRef(false);
 
   const volumeData = globalStats?.volumeData ?? [];
   const savingsData = globalStats?.savingsData ?? [];
@@ -1469,22 +1509,44 @@ function AnalyticsView({ refreshKey = 0 }: { refreshKey?: number }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const loadPersonalStats = useCallback(async () => {
-    if (!publicKey || !provider) {
-      setAnalytics(null);
+  const loadPersonalStats = useCallback(async (forceRefresh = false) => {
+    if (!publicKey || !provider || personalLoadInFlight.current) {
+      if (!publicKey || !provider) setAnalytics(null);
       return;
     }
+    personalLoadInFlight.current = true;
+    if (forceRefresh) {
+      clearWalletAuthCache(publicKey, provider);
+      setAuthError(null);
+    }
     try {
-      const headers = await buildAuthenticatedHeaders(publicKey, provider);
+      const headers = await buildAuthenticatedHeaders(publicKey, provider, { forceRefresh });
       const response = await fetch(`/api/users/${publicKey}/analytics?t=${Date.now()}`, {
         cache: 'no-store',
         headers,
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to load analytics');
+      if (!response.ok) {
+        if (response.status === 401) {
+          clearWalletAuthCache(publicKey, provider);
+          setAuthError(data.error || 'Wallet signature verification failed');
+          setAnalytics(null);
+          return;
+        }
+        throw new Error(data.error || 'Failed to load analytics');
+      }
+      setAuthError(null);
       setAnalytics(data);
-    } catch {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load analytics';
+      if (/reject|cancel|denied/i.test(message)) {
+        setAuthError('Signature is required to view your personal analytics');
+      } else {
+        setAuthError(message);
+      }
       setAnalytics(null);
+    } finally {
+      personalLoadInFlight.current = false;
     }
   }, [publicKey, provider]);
 
@@ -1494,13 +1556,10 @@ function AnalyticsView({ refreshKey = 0 }: { refreshKey?: number }) {
   }, [loadGlobalStats, loadPersonalStats, combinedRefresh]);
 
   useEffect(() => {
-    const onFocus = () => {
-      loadGlobalStats();
-      loadPersonalStats();
-    };
+    const onFocus = () => loadGlobalStats();
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [loadGlobalStats, loadPersonalStats]);
+  }, [loadGlobalStats]);
 
   const fmtUsd = (n: number) => formatUsd(n);
   const fmtCount = (n: number) => Number(n || 0).toLocaleString();
@@ -1509,6 +1568,20 @@ function AnalyticsView({ refreshKey = 0 }: { refreshKey?: number }) {
   return (
     <div className="space-y-6">
       <PageHeader title="Analytics" description="Platform-wide routing performance and your personal trading metrics." />
+
+      {authError && publicKey && (
+        <div className="nd-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-amber-200 bg-amber-50">
+          <p className="text-sm text-amber-900">{authError}</p>
+          <button
+            type="button"
+            onClick={() => loadPersonalStats(true)}
+            className="px-4 py-2 text-xs font-semibold rounded-lg bg-nd-ink text-white hover:opacity-90"
+          >
+            Sign again
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard variant="mint" label="Total swap volume" value={loading ? 'Loading...' : fmtUsd(globalStats?.total_volume_usdc)} subValue="USD notional" footerLabel="View history" footerTo="history" />
         <MetricCard variant="blue" label="Total swaps" value={loading ? 'Loading...' : fmtCount(globalStats?.total_swaps)} subValue={`${fmtCount(globalStats?.total_swaps_completed ?? globalStats?.total_swaps)} completed`} footerLabel="View history" footerTo="history" />
