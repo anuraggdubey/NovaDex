@@ -451,4 +451,106 @@ mod tests {
         client.set_protocol_fee(&20);
         assert_eq!(client.get_protocol_fee(), 20);
     }
+
+    #[test]
+    fn test_attest_swap_happy_path() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, AggregatorRouter);
+        let client = AggregatorRouterClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        client.initialize(&admin, &10);
+
+        let user = Address::generate(&env);
+        // deadline far in the future
+        client.attest_swap(
+            &user,
+            &1_000_000i128,  // amount_in
+            &990_000i128,    // min_out
+            &995_000i128,    // quoted_out
+            &u64::MAX,       // deadline
+            &2u32,           // hop_count
+            &0u32,           // source: SDEX
+        );
+        // No panic means success
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1)")]
+    fn test_attest_swap_not_initialized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, AggregatorRouter);
+        let client = AggregatorRouterClient::new(&env, &contract_id);
+
+        let user = Address::generate(&env);
+        client.attest_swap(
+            &user,
+            &1_000_000i128,
+            &990_000i128,
+            &995_000i128,
+            &u64::MAX,
+            &2u32,
+            &0u32,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #5)")]
+    fn test_attest_swap_expired_deadline() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, AggregatorRouter);
+        let client = AggregatorRouterClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        client.initialize(&admin, &10);
+
+        let user = Address::generate(&env);
+        // deadline of 0 is always in the past
+        client.attest_swap(
+            &user,
+            &1_000_000i128,
+            &990_000i128,
+            &995_000i128,
+            &0u64,   // expired
+            &2u32,
+            &0u32,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #9)")]
+    fn test_attest_swap_zero_amount() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, AggregatorRouter);
+        let client = AggregatorRouterClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        client.initialize(&admin, &10);
+
+        let user = Address::generate(&env);
+        client.attest_swap(
+            &user,
+            &0i128,          // zero amount
+            &0i128,
+            &0i128,
+            &u64::MAX,
+            &1u32,
+            &0u32,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #8)")]
+    fn test_initialize_invalid_fee() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, AggregatorRouter);
+        let client = AggregatorRouterClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        client.initialize(&admin, &1001); // > 1000 max
+    }
 }

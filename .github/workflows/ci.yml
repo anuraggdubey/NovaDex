@@ -52,3 +52,30 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  contracts:
+    name: Build and test Soroban contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts
+
+      - name: Build WASM
+        working-directory: contracts
+        run: cargo build --target wasm32-unknown-unknown --release
+
+      - name: Run tests
+        working-directory: contracts
+        run: cargo test

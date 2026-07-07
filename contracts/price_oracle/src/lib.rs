@@ -522,4 +522,126 @@ mod tests {
         assert_eq!(client.get_user_total_savings(&user), 1_340_000);
         assert_eq!(client.get_user_savings_count(&user), 2);
     }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #6)")]
+    fn test_record_price_invalid_price() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, PriceOracle);
+        let client = PriceOracleClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let router = Address::generate(&env);
+        client.initialize(&admin, &router);
+
+        let pair = make_pair_id(&env, "XLM/USDC");
+        client.record_price(&router, &pair, &0i128, &0u32); // price <= 0
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #4)")]
+    fn test_record_price_unauthorized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, PriceOracle);
+        let client = PriceOracleClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let router = Address::generate(&env);
+        client.initialize(&admin, &router);
+
+        let pair = make_pair_id(&env, "XLM/USDC");
+        let rando = Address::generate(&env); // not an authorized recorder
+        client.record_price(&rando, &pair, &1_000_000i128, &0u32);
+    }
+
+    #[test]
+    fn test_record_savings_user_happy_path() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, PriceOracle);
+        let client = PriceOracleClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let router = Address::generate(&env);
+        client.initialize(&admin, &router);
+
+        let user = Address::generate(&env);
+        let pair = make_pair_id(&env, "XLM/USDC");
+        let tx_hash = BytesN::from_array(&env, &[0xABu8; 32]);
+
+        client.record_savings_user(
+            &user,
+            &pair,
+            &750_000i128,     // savings_amount
+            &1_200_000i128,   // best_direct_price
+            &1_250_000i128,   // actual_price
+            &tx_hash,
+        );
+
+        assert_eq!(client.get_user_total_savings(&user), 750_000);
+        assert_eq!(client.get_user_savings_count(&user), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1)")]
+    fn test_record_savings_user_not_initialized() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, PriceOracle);
+        let client = PriceOracleClient::new(&env, &contract_id);
+
+        let user = Address::generate(&env);
+        let pair = make_pair_id(&env, "XLM/USDC");
+        let tx_hash = BytesN::from_array(&env, &[0xCDu8; 32]);
+
+        client.record_savings_user(
+            &user,
+            &pair,
+            &500_000i128,
+            &1_200_000i128,
+            &1_250_000i128,
+            &tx_hash,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Error(Contract, #7)")]
+    fn test_record_savings_user_invalid_savings() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, PriceOracle);
+        let client = PriceOracleClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let router = Address::generate(&env);
+        client.initialize(&admin, &router);
+
+        let user = Address::generate(&env);
+        let pair = make_pair_id(&env, "XLM/USDC");
+        let tx_hash = BytesN::from_array(&env, &[0xEFu8; 32]);
+
+        client.record_savings_user(
+            &user,
+            &pair,
+            &0i128,           // savings_amount <= 0
+            &1_200_000i128,
+            &1_250_000i128,
+            &tx_hash,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_double_initialize_fails() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, PriceOracle);
+        let client = PriceOracleClient::new(&env, &contract_id);
+
+        let admin = Address::generate(&env);
+        let router = Address::generate(&env);
+        client.initialize(&admin, &router);
+        client.initialize(&admin, &router); // should panic
+    }
 }
