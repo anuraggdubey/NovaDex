@@ -13,10 +13,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, contracterror,
-    Address, BytesN, Env, Map, String, Symbol, Vec,
-    token::Client as TokenClient,
-    panic_with_error,
+    contract, contracterror, contractimpl, contracttype, token::Client as TokenClient, Address,
+    BytesN, Env, Symbol, Vec,
 };
 
 // ==========================================
@@ -72,16 +70,16 @@ pub enum DataKey {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum RouterError {
-    NotInitialized       = 1,
-    AlreadyInitialized   = 2,
-    NotAdmin             = 3,
-    InsufficientOutput   = 4, // actual_out < min_out — slippage protection triggered
-    Expired              = 5, // ledger timestamp > deadline
-    EmptyRoute           = 6,
-    EmptySplitLegs       = 7,
-    InvalidFeeBps        = 8, // fee_bps > 1000 (10%)
-    ZeroAmount           = 9,
-    SplitAmountMismatch  = 10, // sum of split leg amounts != total amount_in
+    NotInitialized = 1,
+    AlreadyInitialized = 2,
+    NotAdmin = 3,
+    InsufficientOutput = 4, // actual_out < min_out — slippage protection triggered
+    Expired = 5,            // ledger timestamp > deadline
+    EmptyRoute = 6,
+    EmptySplitLegs = 7,
+    InvalidFeeBps = 8, // fee_bps > 1000 (10%)
+    ZeroAmount = 9,
+    SplitAmountMismatch = 10, // sum of split leg amounts != total amount_in
 }
 
 // ==========================================
@@ -109,12 +107,12 @@ impl AggregatorRouter {
         }
 
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::ProtocolFeeBps, &fee_bps);
+        env.storage()
+            .instance()
+            .set(&DataKey::ProtocolFeeBps, &fee_bps);
 
-        env.events().publish(
-            (Symbol::new(&env, "initialized"),),
-            (admin, fee_bps),
-        );
+        env.events()
+            .publish((Symbol::new(&env, "initialized"),), (admin, fee_bps));
 
         Ok(())
     }
@@ -125,7 +123,9 @@ impl AggregatorRouter {
         if fee_bps > 1000 {
             return Err(RouterError::InvalidFeeBps);
         }
-        env.storage().instance().set(&DataKey::ProtocolFeeBps, &fee_bps);
+        env.storage()
+            .instance()
+            .set(&DataKey::ProtocolFeeBps, &fee_bps);
         Ok(())
     }
 
@@ -137,7 +137,11 @@ impl AggregatorRouter {
         let amount: i128 = env.storage().instance().get(&key).unwrap_or(0);
 
         if amount > 0 {
-            TokenClient::new(&env, &token).transfer(&env.current_contract_address(), &recipient, &amount);
+            TokenClient::new(&env, &token).transfer(
+                &env.current_contract_address(),
+                &recipient,
+                &amount,
+            );
             env.storage().instance().set(&key, &0i128);
         }
 
@@ -150,7 +154,10 @@ impl AggregatorRouter {
 
     /// Returns the current protocol fee in basis points.
     pub fn get_protocol_fee(env: Env) -> u32 {
-        env.storage().instance().get(&DataKey::ProtocolFeeBps).unwrap_or(10)
+        env.storage()
+            .instance()
+            .get(&DataKey::ProtocolFeeBps)
+            .unwrap_or(10)
     }
 
     /// Returns the admin address.
@@ -164,11 +171,7 @@ impl AggregatorRouter {
     /// Simulate a swap and return the expected output amount.
     /// This is a READ-ONLY operation — does not change state or emit events.
     /// Frontend calls this every 10 seconds to keep quotes fresh.
-    pub fn get_quote(
-        env: Env,
-        route: SwapRoute,
-        amount_in: i128,
-    ) -> Result<i128, RouterError> {
+    pub fn get_quote(env: Env, route: SwapRoute, amount_in: i128) -> Result<i128, RouterError> {
         if route.hops.is_empty() {
             return Err(RouterError::EmptyRoute);
         }
@@ -240,13 +243,15 @@ impl AggregatorRouter {
         // Accumulate protocol fee
         let fee_key = DataKey::AccumulatedFees(first_hop.asset_in.clone());
         let current_fees: i128 = env.storage().instance().get(&fee_key).unwrap_or(0);
-        env.storage().instance().set(&fee_key, &(current_fees + fee_amount));
+        env.storage()
+            .instance()
+            .set(&fee_key, &(current_fees + fee_amount));
 
         // Execute path payment via Stellar PathPaymentStrictSend
-        // Each hop is dispatched. For SDEX hops (source == 0), we use 
+        // Each hop is dispatched. For SDEX hops (source == 0), we use
         // the native Stellar path payment operation built in the transaction.
         // For Aquarius AMM hops (source == 1), we invoke the AMM contract.
-        // The actual cross-contract calls happen via the XDR operations 
+        // The actual cross-contract calls happen via the XDR operations
         // assembled by the frontend SDK before calling this contract.
         //
         // At the Soroban level, we enforce slippage and atomicity.
@@ -411,7 +416,10 @@ impl AggregatorRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Env, Address, BytesN};
+    use soroban_sdk::{
+        testutils::{Address as _, Ledger},
+        Address, Env,
+    };
 
     #[test]
     fn test_initialize() {
@@ -424,7 +432,7 @@ mod tests {
         client.initialize(&admin, &10);
 
         assert_eq!(client.get_protocol_fee(), 10);
-        assert_eq!(client.get_admin().unwrap(), admin);
+        assert_eq!(client.get_admin(), admin);
     }
 
     #[test]
@@ -466,12 +474,12 @@ mod tests {
         // deadline far in the future
         client.attest_swap(
             &user,
-            &1_000_000i128,  // amount_in
-            &990_000i128,    // min_out
-            &995_000i128,    // quoted_out
-            &u64::MAX,       // deadline
-            &2u32,           // hop_count
-            &0u32,           // source: SDEX
+            &1_000_000i128, // amount_in
+            &990_000i128,   // min_out
+            &995_000i128,   // quoted_out
+            &u64::MAX,      // deadline
+            &2u32,          // hop_count
+            &0u32,          // source: SDEX
         );
         // No panic means success
     }
@@ -508,13 +516,13 @@ mod tests {
         client.initialize(&admin, &10);
 
         let user = Address::generate(&env);
-        // deadline of 0 is always in the past
+        env.ledger().set_timestamp(1);
         client.attest_swap(
             &user,
             &1_000_000i128,
             &990_000i128,
             &995_000i128,
-            &0u64,   // expired
+            &0u64, // expired
             &2u32,
             &0u32,
         );
@@ -534,7 +542,7 @@ mod tests {
         let user = Address::generate(&env);
         client.attest_swap(
             &user,
-            &0i128,          // zero amount
+            &0i128, // zero amount
             &0i128,
             &0i128,
             &u64::MAX,

@@ -14,9 +14,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, contracterror,
-    Address, BytesN, Env, Map, String, Symbol, Vec,
-    panic_with_error,
+    contract, contracterror, contractimpl, contracttype, Address, BytesN, Env, Symbol,
 };
 
 // ==========================================
@@ -28,9 +26,9 @@ use soroban_sdk::{
 #[contracttype]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PriceSource {
-    Sdex    = 0,
+    Sdex = 0,
     Aquarius = 1,
-    Anchor  = 2,
+    Anchor = 2,
 }
 
 /// A single price checkpoint recorded on-chain.
@@ -94,14 +92,14 @@ pub enum OracleKey {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum OracleError {
-    NotInitialized         = 1,
-    AlreadyInitialized     = 2,
-    NotAdmin               = 3,
-    NotAuthorizedRecorder  = 4,
-    PriceNotFound          = 5,
-    InvalidPrice           = 6, // price <= 0
-    InvalidSavings         = 7, // savings_amount <= 0
-    ZeroAddress            = 8,
+    NotInitialized = 1,
+    AlreadyInitialized = 2,
+    NotAdmin = 3,
+    NotAuthorizedRecorder = 4,
+    PriceNotFound = 5,
+    InvalidPrice = 6,   // price <= 0
+    InvalidSavings = 7, // savings_amount <= 0
+    ZeroAddress = 8,
 }
 
 // Price staleness threshold: 60 seconds
@@ -132,9 +130,10 @@ impl PriceOracle {
         }
 
         env.storage().instance().set(&OracleKey::Admin, &admin);
-        env.storage()
-            .instance()
-            .set(&OracleKey::AuthorizedRecorder(router_contract.clone()), &true);
+        env.storage().instance().set(
+            &OracleKey::AuthorizedRecorder(router_contract.clone()),
+            &true,
+        );
         env.storage()
             .instance()
             .set(&OracleKey::StalenessThreshold, &DEFAULT_STALENESS_THRESHOLD);
@@ -247,9 +246,10 @@ impl PriceOracle {
             .get(&OracleKey::UserTotalSavings(user.clone()))
             .unwrap_or(0);
 
-        env.storage()
-            .persistent()
-            .set(&OracleKey::UserTotalSavings(user.clone()), &(current_savings + savings_amount));
+        env.storage().persistent().set(
+            &OracleKey::UserTotalSavings(user.clone()),
+            &(current_savings + savings_amount),
+        );
 
         // Update swap count for this user
         let current_count: u64 = env
@@ -258,9 +258,10 @@ impl PriceOracle {
             .get(&OracleKey::UserSavingsCount(user.clone()))
             .unwrap_or(0);
 
-        env.storage()
-            .persistent()
-            .set(&OracleKey::UserSavingsCount(user.clone()), &(current_count + 1));
+        env.storage().persistent().set(
+            &OracleKey::UserSavingsCount(user.clone()),
+            &(current_count + 1),
+        );
 
         // Emit the savings proof as an event (permanently on-chain, queryable by anyone)
         env.events().publish(
@@ -362,9 +363,10 @@ impl PriceOracle {
             .get(&OracleKey::UserTotalSavings(user.clone()))
             .unwrap_or(0);
 
-        env.storage()
-            .persistent()
-            .set(&OracleKey::UserTotalSavings(user.clone()), &(current_savings + savings_amount));
+        env.storage().persistent().set(
+            &OracleKey::UserTotalSavings(user.clone()),
+            &(current_savings + savings_amount),
+        );
 
         let current_count: u64 = env
             .storage()
@@ -372,9 +374,10 @@ impl PriceOracle {
             .get(&OracleKey::UserSavingsCount(user.clone()))
             .unwrap_or(0);
 
-        env.storage()
-            .persistent()
-            .set(&OracleKey::UserSavingsCount(user.clone()), &(current_count + 1));
+        env.storage().persistent().set(
+            &OracleKey::UserSavingsCount(user.clone()),
+            &(current_count + 1),
+        );
 
         env.events().publish(
             (Symbol::new(&env, "savings_proof"), user.clone()),
@@ -433,7 +436,7 @@ impl PriceOracle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Env, Address, BytesN};
+    use soroban_sdk::{testutils::Address as _, Address, BytesN, Env};
 
     fn make_pair_id(env: &Env, label: &str) -> BytesN<32> {
         let bytes: [u8; 32] = {
@@ -457,7 +460,7 @@ mod tests {
 
         client.initialize(&admin, &router);
 
-        assert_eq!(client.get_admin().unwrap(), admin);
+        assert_eq!(client.get_admin(), admin);
     }
 
     #[test]
@@ -490,7 +493,7 @@ mod tests {
 
         client.record_price(&router, &pair, &price, &0u32);
 
-        let record = client.get_price(&pair).unwrap();
+        let record = client.get_price(&pair);
         assert_eq!(record.price_scaled, price);
         assert_eq!(record.source, 0);
     }
@@ -512,13 +515,29 @@ mod tests {
         let tx_hash = BytesN::from_array(&env, &tx_bytes);
 
         // Record first savings: 500_000 (0.50 USDC in scaled units)
-        client.record_savings(&router, &user, &pair, &500_000i128, &1_200_000i128, &1_250_000i128, &tx_hash);
+        client.record_savings(
+            &router,
+            &user,
+            &pair,
+            &500_000i128,
+            &1_200_000i128,
+            &1_250_000i128,
+            &tx_hash,
+        );
         assert_eq!(client.get_user_total_savings(&user), 500_000);
 
         // Record second savings: 840_000 (0.84 USDC)
         let tx_bytes2: [u8; 32] = [2u8; 32];
         let tx_hash2 = BytesN::from_array(&env, &tx_bytes2);
-        client.record_savings(&router, &user, &pair, &840_000i128, &1_200_000i128, &1_250_000i128, &tx_hash2);
+        client.record_savings(
+            &router,
+            &user,
+            &pair,
+            &840_000i128,
+            &1_200_000i128,
+            &1_250_000i128,
+            &tx_hash2,
+        );
         assert_eq!(client.get_user_total_savings(&user), 1_340_000);
         assert_eq!(client.get_user_savings_count(&user), 2);
     }
@@ -574,9 +593,9 @@ mod tests {
         client.record_savings_user(
             &user,
             &pair,
-            &750_000i128,     // savings_amount
-            &1_200_000i128,   // best_direct_price
-            &1_250_000i128,   // actual_price
+            &750_000i128,   // savings_amount
+            &1_200_000i128, // best_direct_price
+            &1_250_000i128, // actual_price
             &tx_hash,
         );
 
@@ -625,7 +644,7 @@ mod tests {
         client.record_savings_user(
             &user,
             &pair,
-            &0i128,           // savings_amount <= 0
+            &0i128, // savings_amount <= 0
             &1_200_000i128,
             &1_250_000i128,
             &tx_hash,
